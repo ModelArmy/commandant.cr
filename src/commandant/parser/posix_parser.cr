@@ -107,16 +107,30 @@ module Commandant
       end
 
       private def parse_short_flags(token : String, flags : Array(Flag), arguments : Array(String)) : Nil
-        # -i.bak — flag with immediately attached value (no space)
-        # Detect by: single dash, second char is alpha, remaining chars include non-alpha
+        # POSIX short flags are single characters: -r, -f, -l
+        # Combined short flags are multiple single chars: -rf, -la (each char is a flag)
+        # Flag with attached value: -i.bak (single flag char + non-alpha remainder)
+        # Multi-char words like -exec, -name, -delete are single flags — NOT combined chars.
+        #
+        # Rule: split into individual flags only when ALL chars after the dash are
+        # single ASCII letters AND there are exactly 2 or more of them (e.g. -rf, -la).
+        # Any non-alpha char in the remainder means it's a flag+attached-value (-i.bak).
+        # A multi-char all-alpha remainder longer than ~2 is almost certainly a word
+        # flag (-exec, -name) — store as-is.
         if token.size > 2 && token[1].ascii_letter?
-          # Check if it looks like combined flags (-rf) or flag+value (-i.bak)
           rest = token[2..]
-          if rest.chars.all?(&.ascii_letter?)
-            # Combined short flags: -rf → -r, -f
+          all_alpha = rest.chars.all?(&.ascii_letter?)
+
+          # Heuristic: combined flags are typically 1-3 chars total (e.g. -rf, -la, -lah).
+          # Words like -exec (4+ chars) are single flags. Threshold: <= 3 total chars = combine.
+          if all_alpha && token.size <= 4
+            # Combined short flags: -rf → -r, -f  or  -la → -l, -a
             token[1..].each_char { |c| flags << Flag.new(raw: "-#{c}", canonical: "-#{c}") }
+          elsif all_alpha
+            # Multi-char word flag: -exec, -name, -delete — store whole token as single flag
+            flags << Flag.new(raw: token, canonical: token)
           else
-            # Flag with attached value: -i.bak — store as single flag, value in arguments
+            # Flag with attached non-alpha value: -i.bak
             flag_char = token[1]
             attached_value = rest
             flags << Flag.new(raw: "-#{flag_char}", canonical: "-#{flag_char}")
