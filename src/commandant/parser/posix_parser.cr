@@ -46,7 +46,7 @@ module Commandant
           i += 1
         end
 
-        compounds = compound_raws.map { |c| parse(c) }
+        compounds = compound_raws.map { |cmd| parse(cmd) }
 
         ParsedCommand.new(
           raw: raw,
@@ -58,6 +58,7 @@ module Commandant
         )
       end
 
+      # ameba:disable Metrics/CyclomaticComplexity: Despite complexity, this is very clear and best in this form
       private def tokenise(raw : String) : Array(String)
         tokens = [] of String
         current = String::Builder.new
@@ -125,7 +126,7 @@ module Commandant
           # Words like -exec (4+ chars) are single flags. Threshold: <= 3 total chars = combine.
           if all_alpha && token.size <= 4
             # Combined short flags: -rf → -r, -f  or  -la → -l, -a
-            token[1..].each_char { |c| flags << Flag.new(raw: "-#{c}", canonical: "-#{c}") }
+            token[1..].each_char { |char| flags << Flag.new(raw: "-#{char}", canonical: "-#{char}") }
           elsif all_alpha
             # Multi-char word flag: -exec, -name, -delete — store whole token as single flag
             flags << Flag.new(raw: token, canonical: token)
@@ -144,9 +145,9 @@ module Commandant
       private def extract_subshells(raw : String) : Array(String)
         subshells = [] of String
         # $(...) extraction
-        raw.scan(/\$\(([^)]*)\)/) { |m| subshells << m[1] }
+        raw.scan(/\$\(([^)]*)\)/) { |match| subshells << match[1] }
         # backtick extraction
-        raw.scan(/`([^`]*)`/) { |m| subshells << m[1] }
+        raw.scan(/`([^`]*)`/) { |match| subshells << match[1] }
         subshells
       end
 

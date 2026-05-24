@@ -15,35 +15,13 @@ module Commandant
     Subshell
 
     def self.from_json_string(s : String) : RiskTag
-      case s
-      when "reads-files"          then ReadsFiles
-      when "writes-files"         then WritesFiles
-      when "deletes-files"        then DeletesFiles
-      when "recursive"            then Recursive
-      when "irreversible"         then Irreversible
-      when "executes-code"        then ExecutesCode
-      when "network-egress"       then NetworkEgress
-      when "elevated-privilege"   then ElevatedPrivilege
-      when "modifies-environment" then ModifiesEnvironment
-      when "subshell"             then Subshell
-      else                             raise ArgumentError.new("Unknown risk tag: #{s}")
-      end
+      # `Enum.parse` treats `-` and `_` identically when parsing strings to match enum names, so:
+      parse(s)
     end
 
+    # Hyphenated lower case risk names
     def to_s : String
-      case self
-      when ReadsFiles          then "reads-files"
-      when WritesFiles         then "writes-files"
-      when DeletesFiles        then "deletes-files"
-      when Recursive           then "recursive"
-      when Irreversible        then "irreversible"
-      when ExecutesCode        then "executes-code"
-      when NetworkEgress       then "network-egress"
-      when ElevatedPrivilege   then "elevated-privilege"
-      when ModifiesEnvironment then "modifies-environment"
-      when Subshell            then "subshell"
-      else                          super
-      end
+      super.underscore.gsub('_', '-')
     end
 
     # Returns true if this tag is non-bypassable — always forces ESCALATE or DENY.

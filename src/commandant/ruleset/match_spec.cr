@@ -21,17 +21,27 @@ module Commandant
     def matches?(cmd : ParsedCommand) : Bool
       canonicals = cmd.flag_canonicals
 
-      return false if !flags_any.empty? && !flags_any.any? { |f| canonicals.includes?(f) }
-      return false if !flags_all.empty? && !flags_all.all? { |f| canonicals.includes?(f) }
-      return false if !flags_none.empty? && flags_none.any? { |f| canonicals.includes?(f) }
-      return false if !args_any.empty? && !args_any.any? { |a| cmd.arguments.includes?(a) }
-      return false if !args_none.empty? && args_none.any? { |a| cmd.arguments.includes?(a) }
+      # return false if !flags_any.empty? && !flags_any.any? { |flag| canonicals.includes?(flag) }
+      # return false if !flags_all.empty? && !flags_all.all? { |flag| canonicals.includes?(flag) }
+      # return false if !flags_none.empty? && flags_none.any? { |flag| canonicals.includes?(flag) }
+      # return false if !args_any.empty? && !args_any.any? { |arg| cmd.arguments.includes?(arg) }
+      # return false if !args_none.empty? && args_none.any? { |arg| cmd.arguments.includes?(arg) }
+
+      return false if flags_and_args_dont_match_any?(canonicals, cmd)
 
       if pat = raw_pattern
         return false unless cmd.raw.matches?(Regex.new(pat))
       end
 
       true
+    end
+
+    private def flags_and_args_dont_match_any?(canonicals, cmd)
+      (!flags_any.empty? && !flags_any.any? { |flag| canonicals.includes?(flag) }) ||
+        (!flags_all.empty? && !flags_all.all? { |flag| canonicals.includes?(flag) }) ||
+        (!flags_none.empty? && flags_none.any? { |flag| canonicals.includes?(flag) }) ||
+        (!args_any.empty? && !args_any.any? { |arg| cmd.arguments.includes?(arg) }) ||
+        (!args_none.empty? && args_none.any? { |arg| cmd.arguments.includes?(arg) })
     end
   end
 end

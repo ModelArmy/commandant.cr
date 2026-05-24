@@ -41,7 +41,7 @@ module Commandant
     def signal_for(risk_tags : Array(RiskTag)) : PersistenceSignal?
       prune_expired
       risk_tags.each do |tag|
-        count = @attempts.count { |a| a.risk_tag == tag }
+        count = @attempts.count { |attempt| attempt.risk_tag == tag }
         if count >= 2
           return PersistenceSignal.new(tag, count, @window_seconds)
         end
@@ -56,7 +56,7 @@ module Commandant
 
     private def prune_expired : Nil
       cutoff = Time.utc - @window_seconds.seconds
-      @attempts.reject! { |a| a.timestamp < cutoff }
+      @attempts.reject! { |attempt| attempt.timestamp < cutoff }
     end
   end
 end

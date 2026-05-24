@@ -83,7 +83,7 @@ module Commandant
       non_bypassable = risk_tags.select(&.non_bypassable?)
       non_bypassable << RiskTag::Irreversible if reversible == Reversibility::No
       non_bypassable.concat(
-        violations.compact_map { |v| v.constraint == "escapes-sandbox" ? RiskTag::ExecutesCode : nil }
+        violations.compact_map { |violation| violation.constraint == "escapes-sandbox" ? RiskTag::ExecutesCode : nil }
       )
       non_bypassable = non_bypassable.uniq
 
@@ -100,11 +100,11 @@ module Commandant
 
       overall_risk = derive_overall_risk(decision, severity, risk_tags, reversible)
 
-      matched_rules = matched.map do |mr|
+      matched_rules = matched.map do |matched_rule|
         MatchedRule.new(
-          rule_id: mr.rule_id,
-          ruleset_tool: mr.ruleset_tool,
-          matched_pattern: mr.matched_pattern
+          rule_id: matched_rule.rule_id,
+          ruleset_tool: matched_rule.ruleset_tool,
+          matched_pattern: matched_rule.matched_pattern
         )
       end
 
@@ -157,7 +157,7 @@ module Commandant
       tool_known : Bool,
     ) : Decision
       # DENY: escapes-sandbox is a hard block
-      return Decision::Deny if violations.any? { |v| v.constraint == "escapes-sandbox" }
+      return Decision::Deny if violations.any? { |violation| violation.constraint == "escapes-sandbox" }
 
       # ESCALATE: any non-bypassable tag or constraint violation
       return Decision::Escalate unless non_bypassable.empty?

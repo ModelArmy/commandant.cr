@@ -50,9 +50,10 @@ module Commandant
       end
 
       tags = [] of RiskTag
-      matched.each do |mr|
-        rule = ruleset.rules.find { |r| r.id == mr.rule_id }
-        tags.concat(rule.risk_tags) if rule
+      matched.each do |matched_rule|
+        if found = ruleset.rules.find { |rule| rule.id == matched_rule.rule_id }
+          tags.concat(found.risk_tags)
+        end
       end
       tags.uniq
     end
@@ -61,8 +62,8 @@ module Commandant
     def max_severity(matched : Array(MatchedRule), ruleset : Ruleset, used_default : Bool) : Severity
       return ruleset.default_rule.severity if used_default
 
-      matched.map do |mr|
-        ruleset.rules.find { |r| r.id == mr.rule_id }.try(&.severity) || Severity::Info
+      matched.map do |matched_rule|
+        ruleset.rules.find { |rule| rule.id == matched_rule.rule_id }.try(&.severity) || Severity::Info
       end.max_by(&.value)
     end
 
@@ -71,8 +72,8 @@ module Commandant
     def min_reversibility(matched : Array(MatchedRule), ruleset : Ruleset, used_default : Bool) : Reversibility
       return ruleset.default_rule.reversible if used_default
 
-      values = matched.map do |mr|
-        ruleset.rules.find { |r| r.id == mr.rule_id }.try(&.reversible) || Reversibility::Yes
+      values = matched.map do |matched_rule|
+        ruleset.rules.find { |rule| rule.id == matched_rule.rule_id }.try(&.reversible) || Reversibility::Yes
       end
 
       return Reversibility::No if values.includes?(Reversibility::No)
@@ -83,9 +84,10 @@ module Commandant
     # Unions likely_consequences across matched rules.
     def union_consequences(matched : Array(MatchedRule), ruleset : Ruleset) : Array(String)
       consequences = [] of String
-      matched.each do |mr|
-        rule = ruleset.rules.find { |r| r.id == mr.rule_id }
-        consequences.concat(rule.likely_consequences) if rule
+      matched.each do |matched_rule|
+        if found = ruleset.rules.find { |rule| rule.id == matched_rule.rule_id }
+          consequences.concat(found.likely_consequences)
+        end
       end
       consequences.uniq
     end
