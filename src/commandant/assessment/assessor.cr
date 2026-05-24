@@ -63,7 +63,8 @@ module Commandant
         return unknown_tool_response(cmd, latency)
       end
 
-      ruleset = @ruleset_store.load(cmd.binary).not_nil!
+      ruleset = @ruleset_store.load(cmd.binary) ||
+                raise "Ruleset for '#{cmd.binary}' was found during lookup but could not be loaded"
 
       # Expand abbreviations using the ruleset's option_abbreviations
       expanded_cmd = expand_abbreviations(cmd, ruleset)
