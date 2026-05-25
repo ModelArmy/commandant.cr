@@ -64,7 +64,7 @@ module Commandant
 
       matched.map do |matched_rule|
         ruleset.rules.find { |rule| rule.id == matched_rule.rule_id }.try(&.severity) || Severity::Info
-      end.max_by(&.value)
+      end.max_by?(&.value) || Severity::Info
     end
 
     # Returns the most conservative reversibility across matched rules.

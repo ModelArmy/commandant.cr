@@ -21,6 +21,8 @@ module Commandant
         # recursively parse the rest into compounds
         parts = split_compounds(raw)
 
+        return ParsedCommand.new(raw: raw, binary: "", flags: [] of Flag, arguments: [] of String) if parts.empty?
+
         primary_raw = parts.first
         compound_raws = parts[1..]
 
