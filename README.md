@@ -12,7 +12,7 @@ Crystal shard for semantic shell command risk assessment. Parses commands, evalu
 
 ```yml
 dependencies:
-  vecstolite:
+  commandant:
     github: modelarmy/commandant.cr
 ```
 
