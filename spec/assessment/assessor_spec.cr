@@ -97,5 +97,37 @@ Spectator.describe Commandant::Assessor do
         expect(parsed["risk_tags"]).not_to be_nil
       end
     end
+
+    context "compound commands" do
+      it "surfaces risk tags from the dangerous half of a compound" do
+        response = assessor.assess("ls . && find . -exec rm {} \\;")
+        expect(response.risk_tags).to contain(Commandant::RiskTag::ExecutesCode)
+      end
+
+      it "escalates when a compound contains a non-bypassable tag" do
+        response = assessor.assess("cat README.md; sed -i 's/foo/bar/' file.txt")
+        expect(response.decision).to eq(Commandant::Decision::Escalate)
+      end
+    end
+
+    context "subshell constraint checking" do
+      it "detects blocked tool in argument string literals" do
+        # crystal eval with single-quoted arg containing a blocked tool name
+        response = assessor.assess("cat file.txt | grep $(shards --version)")
+        expect(response.constraint_violations.map(&.constraint)).to contain("escapes-allowed-tools")
+      end
+
+      it "escalates when subshell command is a disallowed tool" do
+        # $() subshell containing a blocked tool — use grep as outer (allowed)
+        response = assessor.assess("grep $(shards install) file.txt")
+        expect(response.decision).to eq(Commandant::Decision::Escalate)
+        expect(response.constraint_violations.map(&.constraint)).to contain("escapes-allowed-tools")
+      end
+
+      it "allows safe subshell content" do
+        response = assessor.assess("grep $(cat file.txt) other.txt")
+        expect(response.constraint_violations.map(&.constraint)).not_to contain("escapes-allowed-tools")
+      end
+    end
   end
 end

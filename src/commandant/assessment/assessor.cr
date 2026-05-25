@@ -60,7 +60,11 @@ module Commandant
       # Fail-closed: unknown tools always escalate
       unless tool_known
         latency = (Time.instant - start_time).total_milliseconds
-        return unknown_tool_response(cmd, latency)
+        response = unknown_tool_response(cmd, latency)
+        # Record for persistence tracking even for unknown tools —
+        # repeated attempts at blocked capabilities should surface a signal.
+        @persistence_tracker.record_blocked([RiskTag::ExecutesCode])
+        return response
       end
 
       ruleset = @ruleset_store.load(cmd.binary) ||
@@ -77,6 +81,22 @@ module Commandant
       reversible = @evaluator.min_reversibility(matched, ruleset, used_default)
       consequences = @evaluator.union_consequences(matched, ruleset)
 
+      # Union risk from compound commands — a compound like `ls . && rm -rf /`
+      # should surface rm's risk tags alongside ls's.
+      expanded_cmd.compounds.each do |compound|
+        compound_ruleset = @ruleset_store.load(compound.binary)
+        next unless compound_ruleset
+
+        compound_expanded = expand_abbreviations(compound, compound_ruleset)
+        compound_matched, compound_default = @evaluator.evaluate(compound_expanded, compound_ruleset)
+        risk_tags = (risk_tags + @evaluator.union_risk_tags(compound_matched, compound_ruleset, compound_default)).uniq
+        compound_severity = @evaluator.max_severity(compound_matched, compound_ruleset, compound_default)
+        severity = compound_severity if compound_severity.value > severity.value
+        compound_reversible = @evaluator.min_reversibility(compound_matched, compound_ruleset, compound_default)
+        reversible = compound_reversible if compound_reversible.value > reversible.value
+        consequences = (consequences + @evaluator.union_consequences(compound_matched, compound_ruleset)).uniq
+      end
+
       # Runtime constraint evaluation
       violations = @constraint_checker.check(expanded_cmd)
 
@@ -88,16 +108,18 @@ module Commandant
       )
       non_bypassable = non_bypassable.uniq
 
-      # Persistence signal (check before recording)
-      signal = @persistence_tracker.signal_for(risk_tags)
-
       # Decision
       decision = derive_decision(non_bypassable, violations, tool_known)
 
-      # Record blocked assessments for persistence tracking
+      # Record blocked assessments before checking the signal — the signal
+      # threshold is >= 2, so we record the current attempt first, then check.
+      # This means the signal fires on the second blocked attempt, not the third.
       if decision.escalate? || decision.deny?
         @persistence_tracker.record_blocked(risk_tags)
       end
+
+      # Persistence signal — checked after recording so current attempt counts
+      signal = @persistence_tracker.signal_for(risk_tags)
 
       overall_risk = derive_overall_risk(decision, severity, risk_tags, reversible)
 
