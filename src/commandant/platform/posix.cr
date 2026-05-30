@@ -24,15 +24,5 @@ module Commandant
         "macos"
       end
     end
-
-    # Compile-time default platform resolution.
-    # Returns a platform instance matching the build target.
-    def self.default : Base
-      {% if flag?(:darwin) %}
-        MacOS.new
-      {% else %}
-        Linux.new
-      {% end %}
-    end
   end
 end
