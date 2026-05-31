@@ -42,6 +42,7 @@ module Commandant
       violations
     end
 
+    # ameba:disable Metrics/CyclomaticComplexity: State machine for detecting line continuation — clear as-is
     private def check_line_continuations(cmd : ParsedCommand, violations : Array(ConstraintViolation)) : Nil
       # Detects line-continuation sequences OUTSIDE quoted strings — R-INS-07.
       #
