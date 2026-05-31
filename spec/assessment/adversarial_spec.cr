@@ -65,20 +65,22 @@ Spectator.describe "Adversarial bypass detection" do
 
   # -------------------------------------------------------------------------
   # Line-continuation injection (OpenClaw bypass #1)
-  # A \n inside a double-quoted argument enables subshell injection.
-  # R-INS-07: not yet implemented — these are pending until the parser
-  # detects line-continuation sequences as elevated risk.
+  # A \n inside a double-quoted argument or a backslash-newline sequence
+  # can obscure a command's true intent from naive inspectors.
+  # R-INS-07 implemented in ConstraintChecker#check_line_continuations.
   # -------------------------------------------------------------------------
 
   describe "line-continuation injection" do
-    skip "flags command containing newline in quoted argument" do
+    it "flags command containing newline in quoted argument" do
       response = assessor.assess("grep \"foo\nbar\" file.txt")
       expect(response.decision).not_to eq(Commandant::Decision::Allow)
+      expect(response.constraint_violations.map(&.constraint)).to contain("line-continuation")
     end
 
-    skip "flags command containing backslash-newline sequence" do
+    it "flags command containing backslash-newline sequence" do
       response = assessor.assess("grep foo \\\nfile.txt")
       expect(response.decision).not_to eq(Commandant::Decision::Allow)
+      expect(response.constraint_violations.map(&.constraint)).to contain("line-continuation")
     end
   end
 

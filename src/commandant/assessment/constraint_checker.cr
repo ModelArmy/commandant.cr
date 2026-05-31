@@ -25,6 +25,7 @@ module Commandant
     def check(cmd : ParsedCommand) : Array(ConstraintViolation)
       violations = [] of ConstraintViolation
 
+      check_line_continuations(cmd, violations)
       check_allowed_tools(cmd, violations)
       check_sandbox(cmd, violations)
 
@@ -39,6 +40,40 @@ module Commandant
       end
 
       violations
+    end
+
+    private def check_line_continuations(cmd : ParsedCommand, violations : Array(ConstraintViolation)) : Nil
+      # Detects line-continuation sequences in the raw command string — R-INS-07.
+      #
+      # Two patterns are flagged as elevated risk:
+      #
+      # 1. Literal newline inside a double-quoted argument:
+      #    grep "foo\nbar" file.txt
+      #    A newline inside double quotes can enable subshell injection in some
+      #    shell contexts — the shell may evaluate the continuation as a new command.
+      #
+      # 2. Backslash-newline sequence (line continuation):
+      #    grep foo \
+      #    file.txt
+      #    The backslash joins the next line to the current command. A naive
+      #    command inspector that only sees the first line misses the full command.
+      #    This is OpenClaw bypass technique #1 (arXiv 2603.27517).
+
+      # Pattern 1: literal newline (LF or CRLF) anywhere in the raw string
+      if cmd.raw.includes?('\n')
+        violations << ConstraintViolation.new(
+          constraint: "line-continuation",
+          detail: "Command contains a literal newline — possible line-continuation injection"
+        )
+      end
+
+      # Pattern 2: backslash immediately before a newline (explicit continuation)
+      if cmd.raw.matches?(/\\\n/)
+        violations << ConstraintViolation.new(
+          constraint: "line-continuation",
+          detail: "Command contains a backslash-newline sequence — line continuation may obscure intent"
+        )
+      end
     end
 
     private def check_subshell(content : String, violations : Array(ConstraintViolation)) : Nil
