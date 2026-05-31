@@ -120,7 +120,7 @@ flowchart TD
 
 **5. Compound union** — for each compound command (from `;`, `&&`, `||`), the evaluator runs independently and risk tags, severity, reversibility, and consequences are unioned into the primary response.
 
-**6. Constraint check** — `ConstraintChecker#check` evaluates runtime constraints: allowed-tools list, sandbox boundary, exec-argument scanning, subshell parsing, and string-literal scanning. This is the only phase that depends on deployment-specific configuration.
+**6. Constraint check** — `ConstraintChecker#check` evaluates runtime constraints: line-continuation sequences outside quoted strings, allowed-tools list, sandbox boundary, exec-argument scanning, subshell parsing, and string-literal scanning. This is the only phase that depends on deployment-specific configuration.
 
 **7. Non-bypassable tags** — certain risk tags always force ESCALATE or DENY regardless of policy: `executes-code`, `irreversible` (also set when `reversible == No`), and any sandbox escape.
 
@@ -298,10 +298,11 @@ Tags that always force ESCALATE regardless of other factors:
 
 #### Constraint violations
 
-|Violation              |Decision                |
-|-----------------------|------------------------|
-|`escapes-sandbox`      |Always DENY (hard block)|
-|`escapes-allowed-tools`|ESCALATE                |
+|Violation              |Decision                                                           |
+|-----------------------|-------------------------------------------------------------------|
+|`escapes-sandbox`      |Always DENY (hard block)                                           |
+|`escapes-allowed-tools`|ESCALATE                                                           |
+|`line-continuation`    |ESCALATE — bare newline or backslash-newline outside quoted strings|
 
 #### Overall risk derivation
 
@@ -338,6 +339,8 @@ flowchart TD
 ```
 
 #### Capability tunneling detection
+
+Line-continuation sequences are detected first — before any other check — because they can obscure the true command from all subsequent analysis. If a newline or backslash-newline is present, the command escalates regardless of other findings.
 
 Three layers catch blocked tools invoked indirectly:
 
