@@ -72,9 +72,9 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           mkdir -p spec/fixtures;
-          ln -s tmp/rulesets spec/fixtures/rulesets;
           ls -lah tmp/*;
-          ls -lah spec/fixtures/*;
+          cp -R tmp/rulesets spec/fixtures;
+          find spec/fixtures -name \* ;
           crystal spec -Dtest
 
       # ---- Build releases on all platforms
