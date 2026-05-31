@@ -46,6 +46,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ModelArmy/commandant-rules-core
+          # The contents of repo end up in `tmp/` (no dir with repo name)
           path: tmp
 
       - name: Install shards
@@ -72,9 +73,7 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           mkdir -p spec/fixtures;
-          ls -lah tmp/*;
           cp -R tmp/rulesets spec/fixtures;
-          find spec/fixtures -name \* ;
           crystal spec -Dtest
 
       # ---- Build releases on all platforms
