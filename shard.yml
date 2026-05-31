@@ -1,5 +1,5 @@
 name: commandant
-version: 0.3.0
+version: 0.3.1
 license: MPL2
 description: |
   Shell command risk assessment library for AI agent tool calling.
@@ -12,3 +12,7 @@ development_dependencies:
     github: crystal-ameba/ameba
   spectator:
     gitlab: arctic-fox/spectator
+
+targets:
+  assess:
+    main: samples/assess.cr

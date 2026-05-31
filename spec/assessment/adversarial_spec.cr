@@ -65,20 +65,33 @@ Spectator.describe "Adversarial bypass detection" do
 
   # -------------------------------------------------------------------------
   # Line-continuation injection (OpenClaw bypass #1)
-  # A \n inside a double-quoted argument enables subshell injection.
-  # R-INS-07: not yet implemented — these are pending until the parser
-  # detects line-continuation sequences as elevated risk.
+  # Backslash-newline or bare newline OUTSIDE quoted strings obscures intent.
+  # Newlines inside quoted strings are legitimate content and are not flagged.
+  # R-INS-07 implemented in ConstraintChecker#check_line_continuations.
   # -------------------------------------------------------------------------
 
   describe "line-continuation injection" do
-    skip "flags command containing newline in quoted argument" do
-      response = assessor.assess("grep \"foo\nbar\" file.txt")
-      expect(response.decision).not_to eq(Commandant::Decision::Allow)
-    end
-
-    skip "flags command containing backslash-newline sequence" do
+    it "flags backslash-newline outside quotes" do
       response = assessor.assess("grep foo \\\nfile.txt")
       expect(response.decision).not_to eq(Commandant::Decision::Allow)
+      expect(response.constraint_violations.map(&.constraint)).to contain("line-continuation")
+    end
+
+    it "flags bare newline outside quotes" do
+      response = assessor.assess("grep foo\nfile.txt")
+      expect(response.decision).not_to eq(Commandant::Decision::Allow)
+      expect(response.constraint_violations.map(&.constraint)).to contain("line-continuation")
+    end
+
+    it "does not flag newline inside double-quoted argument" do
+      # A newline inside quotes is legitimate content — e.g. a multi-line grep pattern
+      response = assessor.assess("grep \"foo\nbar\" file.txt")
+      expect(response.constraint_violations.map(&.constraint)).not_to contain("line-continuation")
+    end
+
+    it "does not flag newline inside single-quoted argument" do
+      response = assessor.assess("grep 'foo\nbar' file.txt")
+      expect(response.constraint_violations.map(&.constraint)).not_to contain("line-continuation")
     end
   end
 
