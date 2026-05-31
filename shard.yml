@@ -12,3 +12,7 @@ development_dependencies:
     github: crystal-ameba/ameba
   spectator:
     gitlab: arctic-fox/spectator
+
+targets:
+  assess:
+    main: samples/assess.cr
