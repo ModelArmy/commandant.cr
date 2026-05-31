@@ -15,7 +15,7 @@ jobs:
           - { os: ubuntu-latest, crystal: latest }
           - { os: macos-latest, crystal: latest }
           - { os: macos-15-intel, crystal: latest }
-          - { os: windows-latest, crystal: 1.20 }
+          - { os: windows-latest, crystal: "1.20" }
 
     runs-on: ${{ matrix.os }}
 
@@ -73,7 +73,7 @@ jobs:
         run: |
           mkdir -p spec/fixtures;
           ln -s tmp/commandant-rules-core/rulesets spec/fixtures/rulesets;
-          ls -lah spec/fixures;
+          ls -lah spec/fixtures;
           crystal spec -Dtest
 
       # ---- Build releases on all platforms
