@@ -30,3 +30,6 @@ actions:
   test:
     command: crystal spec -Dtest
     description: Run all tests (spectator)
+options:
+  environment:
+    RULESETS_PATH: ${RULESETS_PATH:-spec/fixtures/rulesets}
