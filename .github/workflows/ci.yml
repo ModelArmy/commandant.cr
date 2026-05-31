@@ -72,7 +72,7 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           mkdir -p spec/fixtures;
-          ln -s tmp/commandant-rules-core/rulesets spec/fixtures/rulesets;
+          ln -s tmp/rulesets spec/fixtures/rulesets;
           ls -lah tmp/*;
           ls -lah spec/fixtures/*;
           crystal spec -Dtest
