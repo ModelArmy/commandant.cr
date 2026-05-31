@@ -43,36 +43,53 @@ module Commandant
     end
 
     private def check_line_continuations(cmd : ParsedCommand, violations : Array(ConstraintViolation)) : Nil
-      # Detects line-continuation sequences in the raw command string — R-INS-07.
+      # Detects line-continuation sequences OUTSIDE quoted strings — R-INS-07.
       #
-      # Two patterns are flagged as elevated risk:
+      # Two patterns are flagged:
       #
-      # 1. Literal newline inside a double-quoted argument:
-      #    grep "foo\nbar" file.txt
-      #    A newline inside double quotes can enable subshell injection in some
-      #    shell contexts — the shell may evaluate the continuation as a new command.
-      #
-      # 2. Backslash-newline sequence (line continuation):
+      # 1. Backslash-newline outside quotes (explicit line continuation):
       #    grep foo \
       #    file.txt
-      #    The backslash joins the next line to the current command. A naive
-      #    command inspector that only sees the first line misses the full command.
-      #    This is OpenClaw bypass technique #1 (arXiv 2603.27517).
+      #    The shell joins lines, potentially hiding what follows from a naive
+      #    inspector. This is OpenClaw bypass technique #1 (arXiv 2603.27517).
+      #
+      # 2. Bare newline outside quotes:
+      #    grep foo
+      #    file.txt
+      #    The shell treats this as two commands. A single-line inspector
+      #    misses the second command entirely.
+      #
+      # Newlines INSIDE quoted strings are NOT flagged — they are legitimate
+      # content (e.g. grep "foo\nbar" is a valid multi-line search pattern).
+      raw = cmd.raw
+      in_single = false
+      in_double = false
+      i = 0
 
-      # Pattern 1: literal newline (LF or CRLF) anywhere in the raw string
-      if cmd.raw.includes?('\n')
-        violations << ConstraintViolation.new(
-          constraint: "line-continuation",
-          detail: "Command contains a literal newline — possible line-continuation injection"
-        )
-      end
-
-      # Pattern 2: backslash immediately before a newline (explicit continuation)
-      if cmd.raw.matches?(/\\\n/)
-        violations << ConstraintViolation.new(
-          constraint: "line-continuation",
-          detail: "Command contains a backslash-newline sequence — line continuation may obscure intent"
-        )
+      while i < raw.size
+        char = raw[i]
+        case char
+        when '\''
+          in_single = !in_single unless in_double
+        when '"'
+          in_double = !in_double unless in_single
+        when '\\'
+          if !in_single && !in_double && i + 1 < raw.size && raw[i + 1] == '\n'
+            violations << ConstraintViolation.new(
+              constraint: "line-continuation",
+              detail: "Backslash-newline outside quotes — line continuation may obscure command intent"
+            )
+          end
+          i += 1 # skip next char to avoid double-processing
+        when '\n'
+          unless in_single || in_double
+            violations << ConstraintViolation.new(
+              constraint: "line-continuation",
+              detail: "Bare newline outside quotes — possible command separator injection"
+            )
+          end
+        end
+        i += 1
       end
     end
 
