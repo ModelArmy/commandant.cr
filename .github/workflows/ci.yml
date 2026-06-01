@@ -36,9 +36,6 @@ jobs:
             bin/ameba
           key: ${{ runner.os }}-shards-${{ hashFiles('**/shard.lock') }}
 
-      - name: Install shards
-        run: shards check || shards install
-
       # ---- Build debug release and check code quality on one platform
 
       - name: Checkout core rulesets for running tests
@@ -89,7 +86,7 @@ jobs:
 
       - name: Build Release
         if: ${{ runner.os != 'Windows' }}
-        run: SHARDS_BIN_PATH=bin/release shards build --release
+        run: SHARDS_BIN_PATH=bin/release shards --production build --release
 
       - name: Run Sample `md2term`
         if: ${{ runner.os != 'Windows' }}
@@ -109,4 +106,4 @@ jobs:
         env:
           SHARDS_BIN_PATH: "bin/release"
         run: |
-          shards build --release
+          shards --production build --release
