@@ -1,0 +1,292 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "assessment_response",
+  "title": "Assessment Response",
+  "description": "The structured payload returned by the shard per command invocation. This is the OAP ESCALATE evidence record for shell commands.",
+  "type": "object",
+  "required": [
+    "command",
+    "decision",
+    "risk_tags",
+    "likely_consequences",
+    "severity",
+    "reversible",
+    "constraint_violations",
+    "matched_rules",
+    "ruleset_version",
+    "assessment_latency_ms",
+    "tool_known"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "command": {
+      "type": "object",
+      "description": "The parsed command that was assessed.",
+      "required": [
+        "raw",
+        "binary",
+        "flags",
+        "arguments"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "raw": {
+          "type": "string",
+          "description": "The original unmodified command string as submitted."
+        },
+        "binary": {
+          "type": "string",
+          "description": "The resolved binary name after multiplexer unwrapping if applicable."
+        },
+        "binary_raw": {
+          "type": "string",
+          "description": "The binary name as written, before multiplexer unwrapping. Omitted if no unwrapping occurred."
+        },
+        "flags": {
+          "type": "array",
+          "description": "Parsed flags, each expanded to canonical form if abbreviated.",
+          "items": {
+            "type": "object",
+            "required": [
+              "raw",
+              "canonical"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "raw": {
+                "type": "string",
+                "description": "Flag as written in the command."
+              },
+              "canonical": {
+                "type": "string",
+                "description": "Canonical form after abbreviation expansion. Equal to raw if no expansion occurred."
+              },
+              "abbreviated": {
+                "type": "boolean",
+                "description": "True if this flag was expanded from an abbreviation."
+              }
+            }
+          }
+        },
+        "arguments": {
+          "type": "array",
+          "description": "Non-flag arguments (paths, expressions, etc.).",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "escalate",
+        "deny"
+      ],
+      "description": "The assessment decision. allow: safe under configured policy, no confirmation needed. escalate: present to user for confirmation (OAP ESCALATE). deny: hard block \u2014 sandbox escape or fail-closed condition."
+    },
+    "risk_tags": {
+      "type": "array",
+      "description": "Union of all risk tags matched across all fired rules.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "reads-files",
+          "writes-files",
+          "deletes-files",
+          "recursive",
+          "irreversible",
+          "executes-code",
+          "network-egress",
+          "elevated-privilege",
+          "modifies-environment",
+          "subshell"
+        ]
+      }
+    },
+    "likely_consequences": {
+      "type": "array",
+      "description": "Union of likely_consequences from all fired rules. User-facing outcome categories for non-technical confirmation UX.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "data-loss",
+          "data-corruption",
+          "privacy-breach",
+          "computer-security-compromise",
+          "unsafe-code-execution",
+          "financial-loss",
+          "legal-violation",
+          "harmful-decision"
+        ]
+      }
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "INFO",
+        "WARNING",
+        "ERROR"
+      ],
+      "description": "Highest severity across all matched rules."
+    },
+    "overall_risk": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "Derived overall risk level for host UX. critical: DENY decision or non-bypassable tag present. high: ERROR severity or irreversible+recursive. medium: WARNING severity. low: INFO only."
+    },
+    "reversible": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no",
+        "depends"
+      ],
+      "description": "Most conservative reversibility across all matched rules. 'no' takes precedence over 'depends' over 'yes'."
+    },
+    "constraint_violations": {
+      "type": "array",
+      "description": "Constraints evaluated at runtime that were violated. Empty if none.",
+      "items": {
+        "type": "object",
+        "required": [
+          "constraint",
+          "detail"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "constraint": {
+            "type": "string",
+            "enum": [
+              "escapes-sandbox",
+              "escapes-allowed-tools",
+              "requires-confirmation",
+              "line-continuation"
+            ],
+            "description": "The constraint that was violated. 'escapes-sandbox': path resolves outside sandbox root \u2014 always DENY. 'escapes-allowed-tools': binary not in allowed list \u2014 ESCALATE. 'line-continuation': bare newline or backslash-newline outside quoted strings \u2014 ESCALATE. 'requires-confirmation': policy requires human approval regardless of risk tags."
+          },
+          "detail": {
+            "type": "string",
+            "description": "Human-readable explanation. E.g. 'Path /etc resolves outside sandbox boundary /home/user/project'."
+          }
+        }
+      }
+    },
+    "non_bypassable_tags": {
+      "type": "array",
+      "description": "Subset of risk_tags that are non-bypassable \u2014 always force ESCALATE or DENY regardless of policy. Populated when any of: executes-code, irreversible, escapes-sandbox are present.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "matched_rules": {
+      "type": "array",
+      "description": "The rules from the committed ruleset that fired. Provides traceability from decision to rule.",
+      "items": {
+        "type": "object",
+        "required": [
+          "rule_id",
+          "ruleset_tool"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "description": "The id field from the matched rule."
+          },
+          "matched_pattern": {
+            "type": "string",
+            "description": "The specific pattern within the rule that matched."
+          },
+          "ruleset_tool": {
+            "type": "string",
+            "description": "The tool name of the ruleset this rule came from."
+          }
+        }
+      }
+    },
+    "inspection_findings": {
+      "type": "array",
+      "description": "Findings from deep argument inspection (R-INS-01 through R-INS-07) that are not covered by ruleset matches. Each is a named signal with detail.",
+      "items": {
+        "type": "object",
+        "required": [
+          "signal",
+          "detail"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "signal": {
+            "type": "string",
+            "enum": [
+              "blocked-tool-in-argument",
+              "shell-metacharacter",
+              "inline-code-flag",
+              "line-continuation",
+              "multiplexer-unwrapped",
+              "option-abbreviation-expanded",
+              "unknown-flag",
+              "script-content-scanned"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "description": "What was found and where."
+          },
+          "elevated_to": {
+            "type": "string",
+            "description": "Risk tag this finding elevated the assessment to, if any."
+          }
+        }
+      }
+    },
+    "persistence_signal": {
+      "type": "object",
+      "description": "Present when the same risk category has been attempted multiple times in this session after a prior block or denial. Lightweight observable for capability tunneling patterns.",
+      "required": [
+        "risk_tag",
+        "attempt_count",
+        "session_window_seconds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "risk_tag": {
+          "type": "string",
+          "description": "The risk category being repeatedly attempted."
+        },
+        "attempt_count": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Number of times this risk category has been attempted in the current session window after a block."
+        },
+        "session_window_seconds": {
+          "type": "integer",
+          "description": "The session window over which attempts are counted."
+        }
+      }
+    },
+    "tool_known": {
+      "type": "boolean",
+      "description": "True if a committed ruleset exists for this binary. False triggers ESCALATE regardless of other findings."
+    },
+    "ruleset_version": {
+      "type": "string",
+      "description": "Version identifier of the committed ruleset used. Included in audit records."
+    },
+    "assessment_latency_ms": {
+      "type": "number",
+      "description": "Wall-clock milliseconds from command receipt to response. For performance monitoring against R-NFN-01."
+    },
+    "oap_evidence": {
+      "type": "object",
+      "description": "Optional. OAP-compatible evidence record for deployments using Open Agent Passport. Wraps this response for attachment to an OAP ESCALATE decision.",
+      "additionalProperties": true
+    }
+  }
+}
