@@ -287,6 +287,21 @@
       "type": "object",
       "description": "Optional. OAP-compatible evidence record for deployments using Open Agent Passport. Wraps this response for attachment to an OAP ESCALATE decision.",
       "additionalProperties": true
+    },
+    "mitre_attack": {
+      "description": "MITRE ATT&CK technique IDs unioned across all matched rules. null means no matched rule had the mitre_attack field (pre-backfill rulesets \u2014 coverage unknown). An empty array means the field was present on matched rules but no technique was identified. A non-empty array lists directly-applicable technique IDs.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^T\\d{4}(\\.\\d{3})?$"
+          }
+        }
+      ]
     }
   }
 }

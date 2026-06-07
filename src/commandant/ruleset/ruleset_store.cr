@@ -36,6 +36,7 @@ module Commandant
       return nil unless path
 
       ruleset = Ruleset.from_file(path)
+      warn_missing_mitre_attack(ruleset, path)
       @cache[tool] = ruleset
       ruleset
     end
@@ -64,6 +65,15 @@ module Commandant
         end
       end
       (discovered + @cache.keys).uniq
+    end
+
+    private def warn_missing_mitre_attack(ruleset : Ruleset, path : Path) : Nil
+      missing = ruleset.rules.count { |rule| rule.mitre_attack.nil? }
+      if missing > 0
+        STDERR.puts "WARNING [commandant] #{path}: #{missing} of #{ruleset.rules.size} rule(s) " \
+                    "are missing the mitre_attack field. MITRE ATT&CK mapping will be nil " \
+                    "in assessment responses for these rules. Run a backfill pass to resolve."
+      end
     end
 
     private def resolve_path(tool : String) : Path?

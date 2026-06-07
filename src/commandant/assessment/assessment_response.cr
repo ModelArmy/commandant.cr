@@ -42,6 +42,10 @@ module Commandant
     getter? tool_known : Bool
     getter ruleset_version : String
     getter assessment_latency_ms : Float64
+    # MITRE ATT&CK technique IDs unioned across all matched rules.
+    # nil means no rule in the matched ruleset had the mitre_attack field
+    # (pre-backfill rulesets). [] means evaluated with no applicable technique.
+    getter mitre_attack : Array(String)?
 
     def initialize(
       @command : ParsedCommand,
@@ -58,6 +62,7 @@ module Commandant
       @tool_known : Bool,
       @ruleset_version : String,
       @assessment_latency_ms : Float64,
+      @mitre_attack : Array(String)?,
     )
     end
 

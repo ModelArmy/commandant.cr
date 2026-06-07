@@ -81,6 +81,33 @@ module Commandant
       Reversibility::Yes
     end
 
+    # Unions MITRE ATT&CK technique IDs across matched rules.
+    #
+    # Returns nil if ALL matched rules have a nil mitre_attack field — meaning
+    # no MITRE evaluation has been performed (pre-backfill rulesets).
+    # Returns an array (possibly empty) if at least one rule has the field present —
+    # the array is the union of all non-nil entries.
+    #
+    # This preserves the nil vs [] distinction:
+    #   nil  → unknown (ruleset predates mitre_attack field)
+    #   []   → evaluated; no applicable technique identified
+    def union_mitre_attack(matched : Array(MatchedRule), ruleset : Ruleset) : Array(String)?
+      techniques = [] of String
+      any_present = false
+
+      matched.each do |matched_rule|
+        if found = ruleset.rules.find { |rule| rule.id == matched_rule.rule_id }
+          if rule_techniques = found.mitre_attack
+            any_present = true
+            techniques.concat(rule_techniques)
+          end
+        end
+      end
+
+      return nil unless any_present
+      techniques.uniq
+    end
+
     # Unions likely_consequences across matched rules.
     def union_consequences(matched : Array(MatchedRule), ruleset : Ruleset) : Array(String)
       consequences = [] of String

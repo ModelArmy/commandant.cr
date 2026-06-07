@@ -131,6 +131,11 @@ module Commandant
     getter notes : String?
     getter likely_consequences : Array(String) = [] of String
 
+    # MITRE ATT&CK technique IDs applicable to this rule.
+    # nil means the field was absent from the ruleset (pre-mitre_attack rulesets).
+    # [] means the field was present but no technique was identified.
+    getter mitre_attack : Array(String)?
+
     # Returns true if this rule fires against the given parsed command.
     def matches?(cmd : ParsedCommand) : Bool
       if all_match?

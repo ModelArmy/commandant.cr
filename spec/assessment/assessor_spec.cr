@@ -129,5 +129,19 @@ Spectator.describe Commandant::Assessor do
         expect(response.constraint_violations.map(&.constraint)).not_to contain("escapes-allowed-tools")
       end
     end
+
+    context "mitre_attack in response" do
+      it "returns nil mitre_attack for pre-backfill rulesets" do
+        # All committed fixture rulesets predate mitre_attack — response must be nil,
+        # not [], to distinguish 'unknown' from 'evaluated, none found'.
+        response = assessor.assess("grep foo file.txt")
+        expect(response.mitre_attack).to be_nil
+      end
+
+      it "returns nil mitre_attack for unknown tools" do
+        response = assessor.assess("curl https://example.com")
+        expect(response.mitre_attack).to be_nil
+      end
+    end
   end
 end

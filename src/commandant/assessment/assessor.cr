@@ -80,22 +80,12 @@ module Commandant
       severity = @evaluator.max_severity(matched, ruleset, used_default)
       reversible = @evaluator.min_reversibility(matched, ruleset, used_default)
       consequences = @evaluator.union_consequences(matched, ruleset)
+      mitre_attack = @evaluator.union_mitre_attack(matched, ruleset)
 
       # Union risk from compound commands — a compound like `ls . && rm -rf /`
       # should surface rm's risk tags alongside ls's.
-      expanded_cmd.compounds.each do |compound|
-        compound_ruleset = @ruleset_store.load(compound.binary)
-        next unless compound_ruleset
-
-        compound_expanded = expand_abbreviations(compound, compound_ruleset)
-        compound_matched, compound_default = @evaluator.evaluate(compound_expanded, compound_ruleset)
-        risk_tags = (risk_tags + @evaluator.union_risk_tags(compound_matched, compound_ruleset, compound_default)).uniq
-        compound_severity = @evaluator.max_severity(compound_matched, compound_ruleset, compound_default)
-        severity = compound_severity if compound_severity.value > severity.value
-        compound_reversible = @evaluator.min_reversibility(compound_matched, compound_ruleset, compound_default)
-        reversible = compound_reversible if compound_reversible.value > reversible.value
-        consequences = (consequences + @evaluator.union_consequences(compound_matched, compound_ruleset)).uniq
-      end
+      risk_tags, severity, reversible, consequences, mitre_attack =
+        union_compound_risk(expanded_cmd, risk_tags, severity, reversible, consequences, mitre_attack)
 
       # Runtime constraint evaluation
       violations = @constraint_checker.check(expanded_cmd)
@@ -147,8 +137,39 @@ module Commandant
         persistence_signal: signal,
         tool_known: true,
         ruleset_version: RULESET_VERSION,
-        assessment_latency_ms: latency
+        assessment_latency_ms: latency,
+        mitre_attack: mitre_attack,
       )
+    end
+
+    private def union_compound_risk(
+      cmd : ParsedCommand,
+      risk_tags : Array(RiskTag),
+      severity : Severity,
+      reversible : Reversibility,
+      consequences : Array(String),
+      mitre_attack : Array(String)?,
+    ) : {Array(RiskTag), Severity, Reversibility, Array(String), Array(String)?}
+      cmd.compounds.each do |compound|
+        compound_ruleset = @ruleset_store.load(compound.binary)
+        next unless compound_ruleset
+
+        compound_expanded = expand_abbreviations(compound, compound_ruleset)
+        compound_matched, compound_default = @evaluator.evaluate(compound_expanded, compound_ruleset)
+        risk_tags = (risk_tags + @evaluator.union_risk_tags(compound_matched, compound_ruleset, compound_default)).uniq
+        compound_severity = @evaluator.max_severity(compound_matched, compound_ruleset, compound_default)
+        severity = compound_severity if compound_severity.value > severity.value
+        compound_reversible = @evaluator.min_reversibility(compound_matched, compound_ruleset, compound_default)
+        reversible = compound_reversible if compound_reversible.value > reversible.value
+        consequences = (consequences + @evaluator.union_consequences(compound_matched, compound_ruleset)).uniq
+        compound_mitre = @evaluator.union_mitre_attack(compound_matched, compound_ruleset)
+        mitre_attack = if mitre_attack && compound_mitre
+                         (mitre_attack + compound_mitre).uniq
+                       else
+                         mitre_attack || compound_mitre
+                       end
+      end
+      {risk_tags, severity, reversible, consequences, mitre_attack}
     end
 
     private def expand_abbreviations(cmd : ParsedCommand, ruleset : Ruleset) : ParsedCommand
@@ -217,7 +238,8 @@ module Commandant
         persistence_signal: nil,
         tool_known: false,
         ruleset_version: RULESET_VERSION,
-        assessment_latency_ms: latency
+        assessment_latency_ms: latency,
+        mitre_attack: nil,
       )
     end
   end

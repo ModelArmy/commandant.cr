@@ -118,7 +118,7 @@ flowchart TD
 
 **4. Evaluation** — `Evaluator#evaluate` walks the ruleset's rules top-to-bottom. Every rule that matches is collected. If no rule matches, `used_default` is set and the `default_rule` provides the baseline risk tags. All matching rules fire — there is no first-match-wins behaviour.
 
-**5. Compound union** — for each compound command (from `;`, `&&`, `||`), the evaluator runs independently and risk tags, severity, reversibility, and consequences are unioned into the primary response.
+**5. Compound union** — for each compound command (from `;`, `&&`, `||`), the evaluator runs independently and risk tags, severity, reversibility, consequences, and MITRE ATT&CK techniques are unioned into the primary response.
 
 **6. Constraint check** — `ConstraintChecker#check` evaluates runtime constraints: line-continuation sequences outside quoted strings, allowed-tools list, sandbox boundary, exec-argument scanning, subshell parsing, and string-literal scanning. This is the only phase that depends on deployment-specific configuration.
 
@@ -128,7 +128,7 @@ flowchart TD
 
 **9. Persistence signal** — blocked attempts are recorded, then `signal_for` checks whether the same risk category has been attempted ≥ 2 times within the session window. Recording happens before checking so the current attempt counts.
 
-**10. Response** — `AssessmentResponse` is constructed with all derived fields and returned to the caller.
+**10. Response** — `AssessmentResponse` is constructed with all derived fields and returned to the caller. `mitre_attack` is `nil` when no matched rule had the field (pre-backfill rulesets), or an array (possibly empty) when at least one matched rule carried the field.
 
 ### Data Model
 
@@ -181,6 +181,8 @@ classDiagram
         +Reversibility reversible
         +Severity severity
         +Bool all_match
+        +Array~String~ likely_consequences
+        +Array~String~? mitre_attack
         +matches?(cmd) Bool
     }
     class RulePattern {
@@ -407,6 +409,8 @@ The platform determines both the parser and the ruleset folder searched:
 Windows platforms share the `windows/` ruleset folder because rulesets describe tool risk, not shell syntax. A `forfiles` ruleset is valid for both cmd.exe and PowerShell invocations.
 
 Rulesets are cached after first load. `load_all` can be called at startup (recommended for server mode) to pay the I/O cost once.
+
+When a ruleset is loaded, `RulesetStore` checks each rule for the presence of `mitre_attack`. If any rules are missing the field, a `WARNING` is emitted to STDERR with the rule count and file path. This is non-fatal — assessment continues normally. The warning is silenced once all rules carry the field (after a backfill pass).
 
 ## Adding a New Tool Ruleset
 

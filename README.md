@@ -83,6 +83,7 @@ response.risk_tags         # => [WritesFiles, Irreversible]
 response.reversible        # => No
 response.constraint_violations  # => []
 response.tool_known        # => true
+response.mitre_attack      # => ["T1565.001", "T1485"]  (nil if ruleset predates backfill)
 
 # Serialise to JSON for logging or protocol use
 puts response.to_pretty_json
