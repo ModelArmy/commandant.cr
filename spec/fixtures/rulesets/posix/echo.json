@@ -1,0 +1,36 @@
+{
+  "tool": "echo",
+  "tool_summary": "Fixture tool for testing pre-backfill behaviour. Not a real ruleset.",
+  "platform": "posix",
+  "platform_notes": "Fixture only.",
+  "is_multiplexer": false,
+  "option_abbreviations": {},
+  "default_rule": {
+    "risk_tags": [],
+    "reversible": "yes",
+    "severity": "INFO"
+  },
+  "rules": [
+    {
+      "id": "echo-newline-suppress",
+      "description": "Suppresses trailing newline; changes output format only.",
+      "patterns": [
+        {
+          "pattern": "echo -n ...",
+          "pattern_type": "example",
+          "example": "echo -n hello",
+          "match": {
+            "flags_any": [
+              "-n"
+            ]
+          }
+        }
+      ],
+      "risk_tags": [],
+      "reversible": "yes",
+      "severity": "INFO",
+      "likely_consequences": [],
+      "all_match": false
+    }
+  ]
+}
