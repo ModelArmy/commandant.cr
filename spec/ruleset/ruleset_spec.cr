@@ -31,11 +31,12 @@ Spectator.describe Commandant::Ruleset do
       expect(ruleset.is_multiplexer?).to be_false
     end
 
-    # it "deserialises mitre_attack as nil when field is absent" do
-    #   ruleset = described_class.from_file(RULESETS_PATH / "posix/grep.json")
-    #   # Existing rulesets predate mitre_attack — all rules should have nil
-    #   expect(ruleset.rules.all? { |r| r.mitre_attack.nil? }).to be_true
-    # end
+    it "deserialises mitre_attack as nil when field is absent" do
+      # Uses a controlled fixture that will never have mitre_attack backfilled —
+      # stable regardless of live ruleset changes.
+      ruleset = described_class.from_file(FIXTURES_PATH / "rulesets/posix/echo.json")
+      expect(ruleset.rules.all? { |r| r.mitre_attack.nil? }).to be_true
+    end
   end
 end
 
@@ -98,13 +99,20 @@ Spectator.describe Commandant::RulesetStore do
     end
 
     context "mitre_attack warnings" do
-      # it "loads rulesets with missing mitre_attack without raising" do
-      #   # Pre-backfill rulesets have nil mitre_attack on all rules.
-      #   # The store should warn to STDERR but not raise — loading must succeed.
-      #   ruleset = store.load("grep")
-      #   expect(ruleset).not_to be_nil
-      #   expect(ruleset.not_nil!.rules.all? { |r| r.mitre_attack.nil? }).to be_true
-      # end
+      let(fixture_store) do
+        described_class.new(
+          base_path: FIXTURES_PATH / "rulesets",
+          platform: "posix"
+        )
+      end
+
+      it "loads rulesets with missing mitre_attack without raising" do
+        # Uses the echo fixture which has no mitre_attack field —
+        # stable regardless of live ruleset backfill progress.
+        ruleset = fixture_store.load("echo")
+        expect(ruleset).not_to be_nil
+        expect(ruleset.not_nil!.rules.all? { |r| r.mitre_attack.nil? }).to be_true
+      end
     end
   end
 end

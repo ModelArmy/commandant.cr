@@ -15,6 +15,3 @@ docs/
 
 # Ignore all db-related files at root
 *.db*
-
-# Ignore dev symlink
-spec/fixtures/rulesets
