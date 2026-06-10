@@ -11,6 +11,7 @@ Spectator.describe Commandant::RulesetBundle do
         bundle = described_class.new(path: BUNDLE_PATH)
         expect(bundle.manifest.version).to eq("v0.4.0")
         expect(bundle.manifest.commandant_min_version).to eq("0.4.0")
+        expect(bundle.manifest.attack_version).to eq("ATT&CK-v16.1")
       end
 
       it "sets verification to None" do
@@ -125,6 +126,44 @@ Spectator.describe Commandant::RulesetBundle do
     it "returns nil for an absent entry" do
       bundle = described_class.new(path: BUNDLE_PATH)
       expect(bundle.read_entry("rulesets/posix/nonexistent.json")).to be_nil
+    end
+  end
+
+  describe "#mitre_name" do
+    let(bundle) { described_class.new(path: BUNDLE_PATH) }
+
+    it "returns the human-readable name for a known technique ID" do
+      # T1083 is referenced by grep-recursive in the fixture rulesets
+      expect(bundle.mitre_name("T1083")).to eq("File and Directory Discovery")
+    end
+
+    it "returns nil for an unknown technique ID" do
+      expect(bundle.mitre_name("T9999")).to be_nil
+    end
+
+    it "returns nil for an empty string" do
+      expect(bundle.mitre_name("")).to be_nil
+    end
+  end
+
+  describe "#mitre_names" do
+    it "exposes the full MitreNames mapping" do
+      bundle = described_class.new(path: BUNDLE_PATH)
+      expect(bundle.mitre_names.size).to be > 0
+    end
+
+    it "returns an empty MitreNames when mitre_names.json is absent" do
+      # Build a minimal bundle without mitre_names.json to test graceful degradation
+      tmp_bundle = FIXTURES_PATH / "bundles/no-mitre-names.zip"
+      Compress::Zip::Writer.open(tmp_bundle.to_s) do |zip|
+        zip.add("manifest.json") do |io|
+          io << %({"version":"v0.0.1","commandant_min_version":"0.4.0","schema_version":"1","attack_version":"master","created_at":"2025-01-01T00:00:00Z","tool_count":0,"rule_count":0,"platforms":[],"tools":[],"checksums":{}})
+        end
+      end
+      bundle = described_class.new(path: tmp_bundle)
+      expect(bundle.mitre_names.size).to eq(0)
+      expect(bundle.mitre_name("T1083")).to be_nil
+      File.delete(tmp_bundle.to_s)
     end
   end
 end

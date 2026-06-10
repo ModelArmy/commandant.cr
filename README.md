@@ -126,12 +126,12 @@ puts response.to_pretty_json
 A minimal confirmation table from the response:
 
 ```crystal
-def show_confirmation(response : Commandant::AssessmentResponse)
+def show_confirmation(response : Commandant::AssessmentResponse, bundle : Commandant::RulesetBundle? = nil)
   puts "Command: #{response.command.raw}"
   puts "Risk:    #{response.overall_risk}"
   puts
   response.risk_tags.each do |tag|
-    puts "  ⚠️  #{tag}"
+    puts "  ⚠️ #{tag}"
   end
   unless response.constraint_violations.empty?
     response.constraint_violations.each do |v|
@@ -142,11 +142,23 @@ def show_confirmation(response : Commandant::AssessmentResponse)
     puts
     puts "  ⚡ Repeated attempt: #{sig.risk_tag} tried #{sig.attempt_count} times"
   end
+  if techniques = response.mitre_attack
+    unless techniques.empty?
+      puts
+      puts "  ATT&CK techniques:"
+      techniques.each do |id|
+        name = bundle.try(&.mitre_name(id)) || id
+        puts "    #{id}  #{name}"
+      end
+    end
+  end
   puts
   print "Proceed? [y/N] "
   gets.try(&.strip.downcase) == "y"
 end
 ```
+
+When using a bundle, technique IDs are resolved to human-readable names (e.g. `T1565.001 → Stored Data Manipulation`). When the bundle is absent, or for technique IDs not yet in the bundle's name map, the raw ID is shown as a fallback.
 
 ### Non-bypassable tags
 

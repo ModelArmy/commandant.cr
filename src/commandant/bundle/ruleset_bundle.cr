@@ -1,8 +1,6 @@
 require "compress/zip"
 require "digest/sha256"
 
-require "./bundle_manifest"
-
 module Commandant
   # A versioned, optionally verified commandant ruleset bundle.
   #
@@ -42,6 +40,7 @@ module Commandant
     getter path : Path
     getter manifest : BundleManifest
     getter verification : RulesetVerification
+    getter mitre_names : MitreNames
 
     def initialize(
       @path : Path,
@@ -53,6 +52,7 @@ module Commandant
       end
 
       @manifest = load_manifest
+      @mitre_names = load_mitre_names
       check_engine_compatibility
 
       expected = if checksum_path
@@ -101,6 +101,13 @@ module Commandant
       self
     end
 
+    # Looks up the human-readable name for a MITRE ATT&CK technique ID.
+    # Returns nil when the ID is not present in the bundle's mitre_names.json,
+    # which can occur for pre-backfill rulesets or unknown technique IDs.
+    def mitre_name(id : String) : String?
+      @mitre_names.name_for(id)
+    end
+
     # Reads a ruleset entry from the bundle by relative path (e.g. "rulesets/posix/grep.json").
     # Returns nil if the entry is not present.
     def read_entry(entry_path : String) : String?
@@ -108,6 +115,20 @@ module Commandant
         entry = zip[entry_path]?
         entry.try(&.open(&.gets_to_end))
       end
+    end
+
+    private def load_mitre_names : MitreNames
+      Compress::Zip::File.open(path.to_s) do |zip|
+        entry = zip["mitre_names.json"]?
+        if entry
+          json = entry.open(&.gets_to_end)
+          MitreNames.from_json(json)
+        else
+          MitreNames.new
+        end
+      end
+    rescue ex : JSON::ParseException
+      raise ManifestError.new("Failed to parse mitre_names.json in #{path}: #{ex.message}")
     end
 
     private def load_manifest : BundleManifest

@@ -1,7 +1,7 @@
 require "../src/commandant"
 require "colorize"
 
-def show_confirmation(response : Commandant::AssessmentResponse)
+def show_confirmation(response : Commandant::AssessmentResponse, bundle : Commandant::RulesetBundle? = nil)
   puts "Command: #{response.command.raw}"
   puts "Risk:    #{response.overall_risk}"
   puts
@@ -17,33 +17,56 @@ def show_confirmation(response : Commandant::AssessmentResponse)
     puts
     puts "  ⚡ Repeated attempt: #{sig.risk_tag} tried #{sig.attempt_count} times"
   end
+  if techniques = response.mitre_attack
+    unless techniques.empty?
+      puts
+      puts "  ATT&CK techniques:"
+      techniques.each do |id|
+        name = bundle.try(&.mitre_name(id)) || id
+        puts "    #{id}  #{name}"
+      end
+    end
+  end
   puts
 end
 
-USAGE = "Usage: assess CMDSEQ"
+USAGE = "Usage: assess CMDSEQ\n\nSet RULESETS_PATH environment variable to rulesets folder or bundle ZIP."
 
 cmd = ARGV.join(' ')
 abort(USAGE) unless !(cmd.strip.blank?)
 
-rulesets_path = Path[ENV["RULESETS_PATH"]? || "./rulesets"]
+rulesets = Path[ENV["RULESETS_PATH"]? || "./rulesets"]
 allowed = ENV["ALLOWED_TOOLS"]?.try(&.split(/\s+/)) || %w[find grep sed cat ls]
 
-abort "FATAL: Cannot find rulesets path: #{rulesets_path}" unless Dir.exists?(rulesets_path)
+bundle = if rulesets.to_s.downcase.ends_with?(".zip") && File.exists?(rulesets)
+           checksum_path = "#{rulesets}.sha256"
+           Commandant::RulesetBundle.new(
+             rulesets,
+             checksum_path: File.exists?(checksum_path) ? Path.new(checksum_path) : nil)
+         else
+           abort "FATAL: Cannot find rulesets path: #{rulesets}" unless Dir.exists?(rulesets)
+         end
+puts "#{"FOUND".colorize(:green)} rulesets: #{rulesets}"
 
-puts "#{"FOUND".colorize(:green)} rulesets folder: #{rulesets_path}"
-
-assessor = Commandant::Assessor.new(
-  ruleset_path: rulesets_path,
-  sandbox_root: Path["./"],
-  allowed_tools: allowed
-)
+assessor = if bundle
+             Commandant::Assessor.from_bundle(bundle,
+               sandbox_root: Path["./"],
+               allowed_tools: allowed
+             )
+           else
+             Commandant::Assessor.new(
+               ruleset_path: rulesets,
+               sandbox_root: Path["./"],
+               allowed_tools: allowed
+             )
+           end
 
 assessment = assessor.assess(cmd)
 
 puts "#{"WARNING".colorize(:red).bold}: Unknown tool: #{assessment.command.binary}" unless assessment.tool_known?
 puts
 
-show_confirmation(assessment)
+show_confirmation(assessment, bundle)
 
 puts "---"
 puts assessment.to_pretty_json

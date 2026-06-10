@@ -9,6 +9,7 @@ module Commandant
     getter version : String
     getter commandant_min_version : String
     getter schema_version : String
+    getter attack_version : String
     getter created_at : String
     getter tool_count : Int32
     getter rule_count : Int32
