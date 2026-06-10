@@ -25,7 +25,11 @@ dependencies:
 
 ### Setup
 
-Create an `Assessor` with your sandbox boundary, allowed tools, and the path to your rulesets. The rulesets from [`commandant-rules-core`](https://github.com/ModelArmy/commandant-rules-core) cover the common POSIX coding assistant tools and Windows `forfiles`.
+Create an `Assessor` with your sandbox boundary, allowed tools, and a ruleset source. The rulesets from [`commandant-rules-core`](https://github.com/ModelArmy/commandant-rules-core) cover the common POSIX coding assistant tools and Windows `forfiles`.
+
+#### From a directory
+
+Point at a checked-out or symlinked `commandant-rules-core/rulesets/` directory:
 
 ```crystal
 require "commandant"
@@ -37,14 +41,43 @@ assessor = Commandant::Assessor.new(
 )
 ```
 
-The platform is resolved automatically at compile time (Linux, macOS, or Windows). You can override it explicitly:
+#### From a bundle
+
+Use a versioned `.zip` bundle from a `commandant-rules-core` release. Optionally verify the bundle checksum before use:
+
+```crystal
+bundle = Commandant::RulesetBundle.new(
+  path:          Path["commandant-rules-v0.4.0.zip"],
+  checksum_path: Path["commandant-rules-v0.4.0.zip.sha256"]  # optional; sets verification to Bundle
+)
+bundle.verify!  # optional; per-entry verification; sets verification to Full
+
+assessor = Commandant::Assessor.from_bundle(
+  bundle:        bundle,
+  sandbox_root:  Path[Dir.current],
+  allowed_tools: %w[find grep sed cat ls]
+)
+```
+
+The checksum can also be supplied as a string (e.g. from an environment variable or CI secret):
+
+```crystal
+bundle = Commandant::RulesetBundle.new(
+  path:     Path["commandant-rules-v0.4.0.zip"],
+  checksum: ENV["RULESET_CHECKSUM"]
+)
+```
+
+#### Platform override
+
+The platform is resolved automatically at compile time (Linux, macOS, or Windows). You can override it explicitly with either constructor:
 
 ```crystal
 assessor = Commandant::Assessor.new(
   ruleset_path:  Path["./rulesets"],
   sandbox_root:  Path[Dir.current],
   allowed_tools: %w[find grep sed cat ls],
-  platform:      Commandant::Platform::MacOS.new   # explicit override
+  platform:      Commandant::Platform::MacOS.new
 )
 ```
 
@@ -82,8 +115,9 @@ response.overall_risk      # => High
 response.risk_tags         # => [WritesFiles, Irreversible]
 response.reversible        # => No
 response.constraint_violations  # => []
-response.tool_known        # => true
-response.mitre_attack      # => ["T1565.001", "T1485"]  (nil if ruleset predates backfill)
+response.tool_known             # => true
+response.mitre_attack           # => ["T1565.001", "T1485"]  (nil if ruleset predates backfill)
+response.ruleset_verification   # => Full  (None | Bundle | Entries | Full)
 
 # Serialise to JSON for logging or protocol use
 puts response.to_pretty_json

@@ -3,7 +3,7 @@ require "../spec_helper"
 Spectator.describe Commandant::Assessor do
   let(ruleset_path) { RULESETS_PATH }
   let(sandbox_root) { Path["/home/user/project"] }
-  let(allowed_tools) { %w[find grep sed cat ls] }
+  let(allowed_tools) { %w[find grep sed cat ls true] }
 
   subject(assessor) do
     described_class.new(
@@ -131,9 +131,9 @@ Spectator.describe Commandant::Assessor do
     end
 
     context "mitre_attack in response" do
-      it "returns nil mitre_attack for pre-backfill rulesets" do
-        # All committed fixture rulesets predate mitre_attack — response must be nil,
-        # not [], to distinguish 'unknown' from 'evaluated, none found'.
+      it "returns nil mitre_attack when no rules match (default rule only)" do
+        # Plain grep matches no rules — falls through to default_rule which has
+        # no mitre_attack. union_mitre_attack returns nil (unknown), not [] (none found).
         response = assessor.assess("grep foo file.txt")
         expect(response.mitre_attack).to be_nil
       end
@@ -141,6 +141,62 @@ Spectator.describe Commandant::Assessor do
       it "returns nil mitre_attack for unknown tools" do
         response = assessor.assess("curl https://example.com")
         expect(response.mitre_attack).to be_nil
+      end
+
+      it "returns populated mitre_attack when matched rules carry techniques" do
+        # grep -r fires grep-recursive which has mitre_attack: ["T1083", "T1005"]
+        response = assessor.assess("grep -r foo .")
+        expect(response.mitre_attack).not_to be_nil
+        expect(response.mitre_attack).to contain("T1083")
+        expect(response.mitre_attack).to contain("T1005")
+      end
+
+      it "returns empty array when matched rules have mitre_attack present but empty" do
+        # true --help fires true-help which has mitre_attack: [] — evaluated, none found
+        response = assessor.assess("true --help")
+        expect(response.mitre_attack).not_to be_nil
+        expect(response.mitre_attack.not_nil!).to be_empty
+      end
+    end
+
+    context "ruleset_verification in response" do
+      it "returns None when using directory-based loader" do
+        response = assessor.assess("grep foo file.txt")
+        expect(response.ruleset_verification).to eq(Commandant::RulesetVerification::None)
+      end
+
+      it "returns None for unknown tools" do
+        response = assessor.assess("curl https://example.com")
+        expect(response.ruleset_verification).to eq(Commandant::RulesetVerification::None)
+      end
+
+      it "returns Bundle when assessor is backed by a verified bundle" do
+        bundle = Commandant::RulesetBundle.new(
+          path: FIXTURES_PATH / "bundles/test-bundle-v0.4.0.zip",
+          checksum_path: FIXTURES_PATH / "bundles/test-bundle-v0.4.0.zip.sha256"
+        )
+        bundle_assessor = Commandant::Assessor.from_bundle(
+          bundle: bundle,
+          sandbox_root: Path["/tmp"],
+          allowed_tools: %w[grep find cat ls sed],
+        )
+        response = bundle_assessor.assess("grep foo file.txt")
+        expect(response.ruleset_verification).to eq(Commandant::RulesetVerification::Bundle)
+      end
+
+      it "returns Full when bundle has passed verify!" do
+        bundle = Commandant::RulesetBundle.new(
+          path: FIXTURES_PATH / "bundles/test-bundle-v0.4.0.zip",
+          checksum_path: FIXTURES_PATH / "bundles/test-bundle-v0.4.0.zip.sha256"
+        )
+        bundle.verify!
+        bundle_assessor = Commandant::Assessor.from_bundle(
+          bundle: bundle,
+          sandbox_root: Path["/tmp"],
+          allowed_tools: %w[grep find cat ls sed],
+        )
+        response = bundle_assessor.assess("grep foo file.txt")
+        expect(response.ruleset_verification).to eq(Commandant::RulesetVerification::Full)
       end
     end
   end
