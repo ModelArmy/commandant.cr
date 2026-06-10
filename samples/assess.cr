@@ -1,6 +1,25 @@
 require "../src/commandant"
 require "colorize"
 
+def show_confirmation(response : Commandant::AssessmentResponse)
+  puts "Command: #{response.command.raw}"
+  puts "Risk:    #{response.overall_risk}"
+  puts
+  response.risk_tags.each do |tag|
+    puts "  ⚠️ #{tag}"
+  end
+  unless response.constraint_violations.empty?
+    response.constraint_violations.each do |v|
+      puts "  🚫 #{v.constraint}: #{v.detail}"
+    end
+  end
+  if sig = response.persistence_signal
+    puts
+    puts "  ⚡ Repeated attempt: #{sig.risk_tag} tried #{sig.attempt_count} times"
+  end
+  puts
+end
+
 USAGE = "Usage: assess CMDSEQ"
 
 cmd = ARGV.join(' ')
@@ -22,5 +41,9 @@ assessor = Commandant::Assessor.new(
 assessment = assessor.assess(cmd)
 
 puts "#{"WARNING".colorize(:red).bold}: Unknown tool: #{assessment.command.binary}" unless assessment.tool_known?
+puts
 
+show_confirmation(assessment)
+
+puts "---"
 puts assessment.to_pretty_json

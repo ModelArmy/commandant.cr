@@ -1,0 +1,37 @@
+{
+  "tool": "true",
+  "tool_summary": "Fixture tool for testing mitre_attack: [] (evaluated, no technique found). Not a real ruleset.",
+  "platform": "posix",
+  "platform_notes": "Fixture only.",
+  "is_multiplexer": false,
+  "option_abbreviations": {},
+  "default_rule": {
+    "risk_tags": [],
+    "reversible": "yes",
+    "severity": "INFO"
+  },
+  "rules": [
+    {
+      "id": "true-help",
+      "description": "Displays help text; informational only.",
+      "patterns": [
+        {
+          "pattern": "true --help",
+          "pattern_type": "example",
+          "example": "true --help",
+          "match": {
+            "flags_any": [
+              "--help"
+            ]
+          }
+        }
+      ],
+      "risk_tags": [],
+      "reversible": "yes",
+      "severity": "INFO",
+      "likely_consequences": [],
+      "mitre_attack": [],
+      "all_match": false
+    }
+  ]
+}

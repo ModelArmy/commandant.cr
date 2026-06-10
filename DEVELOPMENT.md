@@ -5,8 +5,8 @@ This document explains how `commandant` works internally — the assessment pipe
 ## Dependencies
 
 1. Make sure you have `ops` installed, in one of the following ways:
- - as a gem via `gem install ops_team` or
- - as a tool via `brew tap nickthecook/crops && brew install ops`
+    - as a gem via `gem install ops_team` or
+    - as a tool via `brew tap nickthecook/crops && brew install ops`
 2. If you not using macOS, or a Linux that uses `apt`, please [install Crystal](https://crystal-lang.org/install/)
 
 ## Getting started

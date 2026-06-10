@@ -1,5 +1,7 @@
 require "json"
 
+require "../bundle/*"
+
 module Commandant
   # The decision outcome of an assessment.
   enum Decision
@@ -46,6 +48,9 @@ module Commandant
     # nil means no rule in the matched ruleset had the mitre_attack field
     # (pre-backfill rulesets). [] means evaluated with no applicable technique.
     getter mitre_attack : Array(String)?
+    # The level of checksum verification performed on the ruleset source.
+    # None when using the directory-based loader or no checksum was provided.
+    getter ruleset_verification : RulesetVerification
 
     def initialize(
       @command : ParsedCommand,
@@ -63,6 +68,7 @@ module Commandant
       @ruleset_version : String,
       @assessment_latency_ms : Float64,
       @mitre_attack : Array(String)?,
+      @ruleset_verification : RulesetVerification,
     )
     end
 

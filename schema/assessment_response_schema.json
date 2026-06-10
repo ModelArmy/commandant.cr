@@ -302,6 +302,16 @@
           }
         }
       ]
+    },
+    "ruleset_verification": {
+      "description": "The level of checksum verification performed on the ruleset source. 'none' when using the directory-based loader or no checksum was provided. 'bundle' when the ZIP-level SHA256 was verified. 'entries' when per-entry manifest checksums were verified. 'full' when both ZIP-level and per-entry verification passed.",
+      "type": "string",
+      "enum": [
+        "none",
+        "bundle",
+        "entries",
+        "full"
+      ]
     }
   }
 }

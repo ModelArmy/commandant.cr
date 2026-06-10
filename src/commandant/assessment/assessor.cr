@@ -46,6 +46,24 @@ module Commandant
       @evaluator = Evaluator.new
     end
 
+    def self.from_bundle(
+      bundle : RulesetBundle,
+      sandbox_root : Path,
+      allowed_tools : Array(String),
+      platform : Platform::Base = Platform.default,
+      parser : Parser::Base? = nil,
+    ) : self
+      assessor = new(
+        ruleset_path: Path["."],
+        sandbox_root: sandbox_root,
+        allowed_tools: allowed_tools,
+        platform: platform,
+        parser: parser,
+      )
+      assessor.ruleset_store.init_from_bundle(bundle)
+      assessor
+    end
+
     # Assesses a raw command string and returns a structured response.
     #
     # This is the hot path. For known tools with committed rulesets,
@@ -139,6 +157,7 @@ module Commandant
         ruleset_version: RULESET_VERSION,
         assessment_latency_ms: latency,
         mitre_attack: mitre_attack,
+        ruleset_verification: @ruleset_store.verification,
       )
     end
 
@@ -240,6 +259,7 @@ module Commandant
         ruleset_version: RULESET_VERSION,
         assessment_latency_ms: latency,
         mitre_attack: nil,
+        ruleset_verification: @ruleset_store.verification,
       )
     end
   end
