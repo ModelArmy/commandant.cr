@@ -41,6 +41,29 @@ assessor = Commandant::Assessor.new(
 )
 ```
 
+#### Embedded bundle (compile-time)
+
+Bake a versioned bundle directly into the binary using the `embed_bundle` macro. No file I/O occurs at runtime — rulesets are available immediately with no setup required from the end user.
+
+Obtain a bundle and its checksum sidecar from a [`commandant-rules-core` release](https://github.com/ModelArmy/commandant-rules-core/releases) — via a git submodule, a download script, or any other means — then embed at compile time:
+
+```crystal
+BUNDLE = Commandant.embed_bundle(
+  "#{__DIR__}/../path/to/commandant-rules-v0.1.1.zip",
+  "#{__DIR__}/../path/to/commandant-rules-v0.1.1.zip.sha256"  # optional; sets verification to Bundle
+)
+
+assessor = Commandant::Assessor.from_bundle(
+  bundle:        BUNDLE,
+  sandbox_root:  Path[Dir.current],
+  allowed_tools: %w[find grep sed cat ls]
+)
+```
+
+`BUNDLE` is a compile-time constant — define it once and reuse wherever an `Assessor` is needed. Paths are resolved relative to the **calling source file**; use `__DIR__` to anchor them. Checksum verification semantics are identical to the path-based constructor.
+
+To update the embedded ruleset, download a new bundle release to your vendor directory, update the path (and checksum), and recompile.
+
 #### From a bundle
 
 Use a versioned `.zip` bundle from a `commandant-rules-core` release. Optionally verify the bundle checksum before use:

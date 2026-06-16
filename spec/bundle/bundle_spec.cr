@@ -4,6 +4,14 @@ BUNDLE_PATH          = FIXTURES_PATH / "bundles/test-bundle-v0.4.0.zip"
 BUNDLE_CHECKSUM_PATH = FIXTURES_PATH / "bundles/test-bundle-v0.4.0.zip.sha256"
 BUNDLE_CHECKSUM_HEX  = File.read(BUNDLE_CHECKSUM_PATH).strip.split(/\s+/).first
 
+# Compile-time embed — exercises Commandant.embed_bundle macro and read_file path.
+# __DIR__ anchors paths to this source file's directory at compile time.
+EMBEDDED_NO_CHECKSUM   = Commandant.embed_bundle("#{__DIR__}/../fixtures/bundles/test-bundle-v0.4.0.zip")
+EMBEDDED_WITH_CHECKSUM = Commandant.embed_bundle(
+  "#{__DIR__}/../fixtures/bundles/test-bundle-v0.4.0.zip",
+  "#{__DIR__}/../fixtures/bundles/test-bundle-v0.4.0.zip.sha256"
+)
+
 Spectator.describe Commandant::RulesetBundle do
   describe ".new" do
     context "without checksum" do
@@ -80,6 +88,103 @@ Spectator.describe Commandant::RulesetBundle do
           checksum: BUNDLE_CHECKSUM_HEX,
         )
       end.to raise_error(Commandant::RulesetBundle::Error)
+    end
+
+    context "with data (embedded)" do
+      let(bundle_bytes) { File.read(BUNDLE_PATH.to_s).to_slice }
+
+      context "without checksum" do
+        it "sets path to <embedded>" do
+          bundle = described_class.new(data: bundle_bytes)
+          expect(bundle.path).to eq(Path["<embedded>"])
+        end
+
+        it "loads and parses the manifest" do
+          bundle = described_class.new(data: bundle_bytes)
+          expect(bundle.manifest.version).to eq("v0.4.0")
+          expect(bundle.manifest.commandant_min_version).to eq("0.4.0")
+          expect(bundle.manifest.attack_version).to eq("ATT&CK-v16.1")
+        end
+
+        it "sets verification to None" do
+          bundle = described_class.new(data: bundle_bytes)
+          expect(bundle.verification).to eq(Commandant::RulesetVerification::None)
+        end
+      end
+
+      context "with checksum string" do
+        it "sets verification to Bundle when hex digest matches" do
+          bundle = described_class.new(data: bundle_bytes, checksum: BUNDLE_CHECKSUM_HEX)
+          expect(bundle.verification).to eq(Commandant::RulesetVerification::Bundle)
+        end
+
+        it "accepts full sha256sum line format" do
+          full_line = "#{BUNDLE_CHECKSUM_HEX}  test-bundle-v0.4.0.zip"
+          bundle = described_class.new(data: bundle_bytes, checksum: full_line)
+          expect(bundle.verification).to eq(Commandant::RulesetVerification::Bundle)
+        end
+
+        it "raises ChecksumMismatchError when digest does not match" do
+          expect do
+            described_class.new(data: bundle_bytes, checksum: "0" * 64)
+          end.to raise_error(Commandant::RulesetBundle::ChecksumMismatchError)
+        end
+      end
+
+      describe "#verify!" do
+        it "upgrades verification from None to Entries" do
+          bundle = described_class.new(data: bundle_bytes)
+          bundle.verify!
+          expect(bundle.verification).to eq(Commandant::RulesetVerification::Entries)
+        end
+
+        it "upgrades verification from Bundle to Full" do
+          bundle = described_class.new(data: bundle_bytes, checksum: BUNDLE_CHECKSUM_HEX)
+          bundle.verify!
+          expect(bundle.verification).to eq(Commandant::RulesetVerification::Full)
+        end
+      end
+
+      describe "#read_entry" do
+        it "returns JSON content for a present entry" do
+          bundle = described_class.new(data: bundle_bytes)
+          content = bundle.read_entry("rulesets/posix/grep.json")
+          expect(content).not_to be_nil
+          expect(content.not_nil!).to contain("\"tool\": \"grep\"")
+        end
+
+        it "returns nil for an absent entry" do
+          bundle = described_class.new(data: bundle_bytes)
+          expect(bundle.read_entry("rulesets/posix/nonexistent.json")).to be_nil
+        end
+      end
+
+      describe "#mitre_name" do
+        it "returns the human-readable name for a known technique ID" do
+          bundle = described_class.new(data: bundle_bytes)
+          expect(bundle.mitre_name("T1083")).to eq("File and Directory Discovery")
+        end
+
+        it "returns nil for an unknown technique ID" do
+          bundle = described_class.new(data: bundle_bytes)
+          expect(bundle.mitre_name("T9999")).to be_nil
+        end
+      end
+    end
+
+    context "embed_bundle macro" do
+      it "produces a bundle with verification None when no checksum provided" do
+        expect(EMBEDDED_NO_CHECKSUM.verification).to eq(Commandant::RulesetVerification::None)
+        expect(EMBEDDED_NO_CHECKSUM.path).to eq(Path["<embedded>"])
+      end
+
+      it "produces a bundle with verification Bundle when checksum sidecar provided" do
+        expect(EMBEDDED_WITH_CHECKSUM.verification).to eq(Commandant::RulesetVerification::Bundle)
+      end
+
+      it "loads manifest correctly from embedded bytes" do
+        expect(EMBEDDED_NO_CHECKSUM.manifest.version).to eq("v0.4.0")
+      end
     end
   end
 

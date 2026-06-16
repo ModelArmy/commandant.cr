@@ -200,4 +200,51 @@ Spectator.describe Commandant::Assessor do
       end
     end
   end
+
+  describe "from_bundle (embedded)" do
+    # Compile-time embed — exercises the full path from embed_bundle macro through
+    # RulesetBundle(data:) → RulesetStore → Assessor → AssessmentResponse.
+    EMBEDDED_BUNDLE = Commandant.embed_bundle(
+      "#{__DIR__}/../fixtures/bundles/test-bundle-v0.4.0.zip",
+      "#{__DIR__}/../fixtures/bundles/test-bundle-v0.4.0.zip.sha256"
+    )
+
+    subject(assessor) do
+      Commandant::Assessor.from_bundle(
+        bundle: EMBEDDED_BUNDLE,
+        sandbox_root: Path["/home/user/project"],
+        allowed_tools: %w[grep find cat ls sed],
+        platform: Commandant::Platform::Linux.new
+      )
+    end
+
+    it "allows a safe command" do
+      response = assessor.assess("grep foo file.txt")
+      expect(response.decision).to eq(Commandant::Decision::Allow)
+      expect(response.tool_known?).to be_true
+    end
+
+    it "escalates a risky command" do
+      response = assessor.assess("find . -name '*.log' -exec cat {} \\;")
+      expect(response.decision).to eq(Commandant::Decision::Escalate)
+      expect(response.risk_tags).to contain(Commandant::RiskTag::ExecutesCode)
+    end
+
+    it "denies a sandbox escape" do
+      response = assessor.assess("find /etc -name '*.conf'")
+      expect(response.decision).to eq(Commandant::Decision::Deny)
+    end
+
+    it "populates mitre_attack from the embedded ruleset" do
+      # grep -r triggers recursive file search; T1083 is File and Directory Discovery
+      response = assessor.assess("grep -r TODO .")
+      expect(response.mitre_attack).not_to be_nil
+      expect(response.mitre_attack.not_nil!).to contain("T1083")
+    end
+
+    it "reflects Bundle verification level from embedded checksum" do
+      response = assessor.assess("grep foo file.txt")
+      expect(response.ruleset_verification).to eq(Commandant::RulesetVerification::Bundle)
+    end
+  end
 end

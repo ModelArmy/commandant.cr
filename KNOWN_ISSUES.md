@@ -1,6 +1,6 @@
 # Known issues
 
-> **Not yet released** — API is not stable; breaking changes expected as implementation matures. All known issues that gate the first release are identified here, and will checked off as completed.
+> **Release** — API is stable. Remaining issues are manageable.
 
 - [ ] **POSIX parser combined-flag heuristic is approximate** — flags are split into individual characters only when the token is ≤ 4 chars total and all-alpha (e.g. `-rf`, `-la`). Longer all-alpha tokens are treated as single word flags (`-exec`, `-name`). Edge cases exist: `-lash` would be treated as a word flag rather than combined `-l -a -s -h`. A proper solution requires a per-tool flag registry, which is deferred.
 - [ ] **`raw_pattern` in `MatchSpec` compiles a new `Regex` on every evaluation** — no caching; acceptable for now given hot-path frequency but worth addressing before any performance benchmarking.

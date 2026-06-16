@@ -137,6 +137,13 @@ flowchart TD
 The output of parsing. A value type (`record`).
 
 ```mermaid
+---
+displayMode: compact
+config:
+  layout: elk
+  themeVariables:
+    fontSize: 12px
+---
 classDiagram
     class ParsedCommand {
         +String raw
@@ -165,6 +172,13 @@ classDiagram
 Loaded from JSON at startup. Immutable after load.
 
 ```mermaid
+---
+displayMode: compact
+config:
+  layout: elk
+  themeVariables:
+    fontSize: 12px
+---
 classDiagram
     class Ruleset {
         +String tool
@@ -359,6 +373,7 @@ Three layers catch blocked tools invoked indirectly:
 This is a lightweight observable — it does not block execution. Its purpose is to surface capability tunneling patterns where an agent repeatedly attempts a blocked capability via different command paths.
 
 ```mermaid
+
 sequenceDiagram
     participant A as Assessor
     participant T as PersistenceTracker
@@ -411,6 +426,76 @@ Windows platforms share the `windows/` ruleset folder because rulesets describe 
 Rulesets are cached after first load. `load_all` can be called at startup (recommended for server mode) to pay the I/O cost once.
 
 When a ruleset is loaded, `RulesetStore` checks each rule for the presence of `mitre_attack`. If any rules are missing the field, a `WARNING` is emitted to STDERR with the rule count and file path. This is non-fatal — assessment continues normally. The warning is silenced once all rules carry the field (after a backfill pass).
+
+## Ruleset Bundles
+
+`RulesetBundle` wraps a versioned ZIP produced by `commandant-rules-core/scripts/package.rb`. It is an alternative to directory-based loading that supports checksum verification and compile-time embedding.
+
+### Bundle contents
+
+```
+manifest.json          # identity, version metadata, per-entry SHA-256 checksums
+mitre_names.json       # technique ID → human name, e.g. {"T1083": {"name": "File and Directory Discovery"}}
+rulesets/posix/        # one JSON per tool
+rulesets/linux/
+rulesets/macos/
+rulesets/windows/
+```
+
+`manifest.json` carries `commandant_min_version` — `BundleManifest#engine_compatible?` compares this against the running engine version and raises `IncompatibleEngineError` on mismatch.
+
+`mitre_names.json` is optional. If absent, `RulesetBundle#mitre_name` returns `nil` for all IDs.
+
+### `RulesetVerification` enum
+
+|Level    |Meaning                                        |How achieved                         |
+|---------|-----------------------------------------------|-------------------------------------|
+|`None`   |No verification performed                      |No checksum provided at construction |
+|`Bundle` |ZIP-level SHA-256 verified                     |`checksum:` or `checksum_path:` given|
+|`Entries`|Per-entry manifest checksums verified          |`verify!` called from `None`         |
+|`Full`   |Both ZIP-level and per-entry checksums verified|`verify!` called from `Bundle`       |
+
+Checksum mismatch at any level raises `ChecksumMismatchError` (fatal). A missing `mitre_attack` field on loaded rules emits a STDERR warning (non-fatal).
+
+### Constructors
+
+**Path-based** — loads from a ZIP file on disk:
+
+```crystal
+bundle = RulesetBundle.new(path: Path["commandant-rules-v0.1.1.zip"])
+bundle = RulesetBundle.new(path: ..., checksum_path: Path["commandant-rules-v0.1.1.zip.sha256"])
+bundle = RulesetBundle.new(path: ..., checksum: ENV["RULESET_CHECKSUM"])
+```
+
+**Data-based** — loads from in-memory bytes; intended for use with `embed_bundle`:
+
+```crystal
+bundle = RulesetBundle.new(data: File.read("bundle.zip").to_slice)
+bundle = RulesetBundle.new(data: bytes, checksum: "abc123...")
+```
+
+Both constructors share the same initialisation flow: load manifest → load MITRE names → check engine compatibility → verify checksum (if provided). The `path` getter returns `Path["<embedded>"]` for data-based bundles.
+
+### `open_zip` helper
+
+All ZIP reads go through the private `open_zip` helper, which dispatches between an `IO::Memory` wrapper (data-based) and `Compress::Zip::File.open` (path-based). Adding any new ZIP-reading method should use `open_zip`, not `Compress::Zip::File.open` directly.
+
+### `embed_bundle` macro
+
+Defined in `src/commandant/bundle/embed.cr`. Uses `{{ read_file(path) }}` to bake ZIP bytes into the binary at compile time. Paths are resolved at the **call site** — callers must use `__DIR__` to anchor relative paths to their source file:
+
+```crystal
+BUNDLE = Commandant.embed_bundle(
+  "#{__DIR__}/../path/to/commandant-rules-v0.1.1.zip",
+  "#{__DIR__}/../path/to/commandant-rules-v0.1.1.zip.sha256"
+)
+```
+
+The macro is a thin wrapper over `RulesetBundle.new(data:, checksum:)`. All verification and manifest loading happens at startup, not at every assessment.
+
+### Spec fixtures
+
+`spec/fixtures/bundles/test-bundle-v0.4.0.zip` is generated from `spec/fixtures/rulesets/` — a controlled set of fixtures independent of the live `commandant-rules-core` corpus. If fixture rulesets change, regenerate the test bundle with the Python script in the session history (not `scripts/package.rb`, which requires network access for STIX data).
 
 ## Adding a New Tool Ruleset
 

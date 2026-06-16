@@ -42,6 +42,18 @@ module Commandant
     getter verification : RulesetVerification
     getter mitre_names : MitreNames
 
+    # Loads a bundle from a ZIP file on disk, with optional checksum verification.
+    #
+    # ```
+    # # No verification
+    # bundle = RulesetBundle.new(path: Path["commandant-rules-v0.1.1.zip"])
+    #
+    # # ZIP-level verification from a checksum file
+    # bundle = RulesetBundle.new(
+    #   path: Path["commandant-rules-v0.1.1.zip"],
+    #   checksum_path: Path["commandant-rules-v0.1.1.zip.sha256"]
+    # )
+    # ```
     def initialize(
       @path : Path,
       checksum_path : Path? = nil,
@@ -51,6 +63,7 @@ module Commandant
         raise Error.new("Provide checksum_path or checksum, not both.")
       end
 
+      @data = nil
       @manifest = load_manifest
       @mitre_names = load_mitre_names
       check_engine_compatibility
@@ -69,13 +82,43 @@ module Commandant
       end
     end
 
+    # Loads a bundle from in-memory bytes, with optional checksum verification.
+    # Intended for use with the `Commandant.embed_bundle` macro, which bakes
+    # the ZIP into the binary at compile time.
+    #
+    # ```
+    # BUNDLE = Commandant.embed_bundle(
+    #   "vendor/commandant-rules-v0.1.1.zip",
+    #   "vendor/commandant-rules-v0.1.1.zip.sha256"
+    # )
+    # ```
+    def initialize(
+      data : Bytes,
+      checksum : String? = nil,
+    )
+      @path = Path["<embedded>"]
+      @data = data
+      @manifest = load_manifest
+      @mitre_names = load_mitre_names
+      check_engine_compatibility
+
+      expected = checksum.try { |raw| normalise_checksum(raw) }
+
+      if expected
+        verify_zip_checksum(expected)
+        @verification = RulesetVerification::Bundle
+      else
+        @verification = RulesetVerification::None
+      end
+    end
+
     # Performs per-entry checksum verification against the manifest.
     #
     # Upgrades `verification` to `Entries` (if previously `None`) or
     # `Full` (if previously `Bundle`). Raises `ChecksumMismatchError`
     # on any mismatch.
     def verify! : self
-      Compress::Zip::File.open(path.to_s) do |zip|
+      open_zip do |zip|
         manifest.checksums.each do |entry_path, expected_hex|
           entry = zip[entry_path]?
           raise ManifestError.new("Bundle is missing manifest entry: #{entry_path}") unless entry
@@ -111,14 +154,30 @@ module Commandant
     # Reads a ruleset entry from the bundle by relative path (e.g. "rulesets/posix/grep.json").
     # Returns nil if the entry is not present.
     def read_entry(entry_path : String) : String?
-      Compress::Zip::File.open(path.to_s) do |zip|
+      open_zip do |zip|
         entry = zip[entry_path]?
         entry.try(&.open(&.gets_to_end))
       end
     end
 
+    private def open_zip(& : Compress::Zip::File -> T) : T forall T
+      if data = @data
+        io = IO::Memory.new(data)
+        zip = Compress::Zip::File.new(io)
+        begin
+          yield zip
+        ensure
+          zip.close
+        end
+      else
+        Compress::Zip::File.open(@path.to_s) do |file|
+          yield file
+        end
+      end
+    end
+
     private def load_mitre_names : MitreNames
-      Compress::Zip::File.open(path.to_s) do |zip|
+      open_zip do |zip|
         entry = zip["mitre_names.json"]?
         if entry
           json = entry.open(&.gets_to_end)
@@ -132,7 +191,7 @@ module Commandant
     end
 
     private def load_manifest : BundleManifest
-      Compress::Zip::File.open(path.to_s) do |zip|
+      open_zip do |zip|
         entry = zip["manifest.json"]?
         raise ManifestError.new("Bundle is missing manifest.json: #{path}") unless entry
         json = entry.open(&.gets_to_end)
@@ -153,10 +212,14 @@ module Commandant
     end
 
     private def verify_zip_checksum(expected_hex : String) : Nil
-      actual_hex = Digest::SHA256.hexdigest(File.read(path.to_s))
+      actual_hex = if data = @data
+                     Digest::SHA256.hexdigest(data)
+                   else
+                     Digest::SHA256.hexdigest(File.read(@path.to_s))
+                   end
       unless actual_hex == expected_hex
         raise ChecksumMismatchError.new(
-          "Bundle checksum mismatch: #{path}\n" \
+          "Bundle checksum mismatch: #{@path}\n" \
           "  expected: #{expected_hex}\n" \
           "  actual:   #{actual_hex}"
         )
