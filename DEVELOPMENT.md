@@ -128,7 +128,7 @@ flowchart TD
 
 **9. Persistence signal** — blocked attempts are recorded, then `signal_for` checks whether the same risk category has been attempted ≥ 2 times within the session window. Recording happens before checking so the current attempt counts.
 
-**10. Response** — `AssessmentResponse` is constructed with all derived fields and returned to the caller. `mitre_attack` is `nil` when no matched rule had the field (pre-backfill rulesets), or an array (possibly empty) when at least one matched rule carried the field.
+**10. Response** — `AssessmentResponse` is constructed with all derived fields and returned to the caller. `mitre_attack` is `nil` when no matched rule (or the default rule, when no specific rule matched) had the field (pre-backfill rulesets), or an array (possibly empty) when at least one matched rule carried the field. `readonly?` returns `true` only when the decision is `Allow`, `mitre_attack` is `[]` (not `nil`), and no write-side risk tag is present in the unioned `risk_tags`.
 
 ### Data Model
 

@@ -2,8 +2,9 @@ require "../src/commandant"
 require "colorize"
 
 def show_confirmation(response : Commandant::AssessmentResponse, bundle : Commandant::RulesetBundle? = nil)
-  puts "Command: #{response.command.raw}"
-  puts "Risk:    #{response.overall_risk}"
+  puts "Command:   #{response.command.raw}"
+  puts "Risk:      #{response.overall_risk}"
+  puts "Readonly?  #{response.readonly?}"
   puts
   response.risk_tags.each do |tag|
     puts "  ⚠️ #{tag}"

@@ -86,5 +86,33 @@ module Commandant
     def deny? : Bool
       decision == Decision::Deny
     end
+
+    # Returns true if the command is safe to run in a read-only context.
+    #
+    # All three conditions must hold:
+    # - decision is Allow
+    # - mitre_attack is [] (evaluated with no applicable technique; nil means
+    #   pre-backfill/unknown and is treated as unsafe)
+    # - no matched rule introduced a write-side risk tag
+    #
+    # Note: Recursive is intentionally excluded from the write-side set —
+    # a recursive read (e.g. `grep -r`) is still read-only.
+    def readonly? : Bool
+      return false unless allow?
+      return false unless mitre_attack == [] of String
+
+      WRITE_SIDE_TAGS.none? { |tag| risk_tags.includes?(tag) }
+    end
+
+    private WRITE_SIDE_TAGS = {
+      RiskTag::WritesFiles,
+      RiskTag::DeletesFiles,
+      RiskTag::ExecutesCode,
+      RiskTag::NetworkEgress,
+      RiskTag::ElevatedPrivilege,
+      RiskTag::ModifiesEnvironment,
+      RiskTag::Subshell,
+      RiskTag::Irreversible,
+    }
   end
 end

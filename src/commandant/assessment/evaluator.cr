@@ -91,7 +91,9 @@ module Commandant
     # This preserves the nil vs [] distinction:
     #   nil  → unknown (ruleset predates mitre_attack field)
     #   []   → evaluated; no applicable technique identified
-    def union_mitre_attack(matched : Array(MatchedRule), ruleset : Ruleset) : Array(String)?
+    def union_mitre_attack(matched : Array(MatchedRule), ruleset : Ruleset, used_default : Bool) : Array(String)?
+      return ruleset.default_rule.mitre_attack if used_default
+
       techniques = [] of String
       any_present = false
 
