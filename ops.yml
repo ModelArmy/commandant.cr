@@ -32,4 +32,4 @@ actions:
     description: Run all tests (spectator)
 options:
   environment:
-    RULESETS_PATH: ${RULESETS_PATH:-spec/fixtures/rulesets}
+    RULESETS_PATH: ${RULESETS_PATH:-../commandant-rules-core/rulesets}
