@@ -8,6 +8,9 @@ module Commandant
     getter risk_tags : Array(RiskTag)
     getter reversible : Reversibility
     getter severity : Severity
+    # MITRE ATT&CK technique IDs for the default (no-flag) invocation.
+    # nil means the field was absent (pre-backfill); [] means evaluated with no applicable technique.
+    getter mitre_attack : Array(String)?
   end
 
   # A loaded ruleset for a single tool on a single platform.

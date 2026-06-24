@@ -1,5 +1,5 @@
 name: commandant
-version: 0.5.2
+version: 0.5.3
 license: MPL2
 description: |
   Shell command risk assessment library for AI agent tool calling.

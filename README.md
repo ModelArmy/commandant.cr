@@ -141,6 +141,7 @@ response.constraint_violations  # => []
 response.tool_known             # => true
 response.mitre_attack           # => ["T1565.001", "T1485"]  (nil if ruleset predates backfill)
 response.ruleset_verification   # => Full  (None | Bundle | Entries | Full)
+response.readonly?              # => false  (true only when Allow + no write-side tags + mitre_attack evaluated)
 
 # Serialise to JSON for logging or protocol use
 puts response.to_pretty_json

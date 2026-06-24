@@ -98,7 +98,7 @@ module Commandant
       severity = @evaluator.max_severity(matched, ruleset, used_default)
       reversible = @evaluator.min_reversibility(matched, ruleset, used_default)
       consequences = @evaluator.union_consequences(matched, ruleset)
-      mitre_attack = @evaluator.union_mitre_attack(matched, ruleset)
+      mitre_attack = @evaluator.union_mitre_attack(matched, ruleset, used_default)
 
       # Union risk from compound commands — a compound like `ls . && rm -rf /`
       # should surface rm's risk tags alongside ls's.
@@ -181,7 +181,7 @@ module Commandant
         compound_reversible = @evaluator.min_reversibility(compound_matched, compound_ruleset, compound_default)
         reversible = compound_reversible if compound_reversible.value > reversible.value
         consequences = (consequences + @evaluator.union_consequences(compound_matched, compound_ruleset)).uniq
-        compound_mitre = @evaluator.union_mitre_attack(compound_matched, compound_ruleset)
+        compound_mitre = @evaluator.union_mitre_attack(compound_matched, compound_ruleset, compound_default)
         mitre_attack = if mitre_attack && compound_mitre
                          (mitre_attack + compound_mitre).uniq
                        else
