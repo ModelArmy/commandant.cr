@@ -106,7 +106,7 @@ module Commandant
         end
       end
 
-      return nil unless any_present
+      return unless any_present
       techniques.uniq
     end
 

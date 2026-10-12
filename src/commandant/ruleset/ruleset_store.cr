@@ -33,7 +33,7 @@ module Commandant
       return @cache[tool] if @cache.has_key?(tool)
 
       path = resolve_path(tool)
-      return nil unless path
+      return unless path
 
       ruleset = Ruleset.from_file(path)
       warn_missing_mitre_attack(ruleset, path)

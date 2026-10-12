@@ -229,7 +229,7 @@ module Commandant
     private def read_checksum_file(checksum_path : Path) : String
       content = File.read(checksum_path.to_s)
       normalise_checksum(content)
-    rescue ex : File::NotFoundError
+    rescue File::NotFoundError
       raise Error.new("Checksum file not found: #{checksum_path}")
     end
 

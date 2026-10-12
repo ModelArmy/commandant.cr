@@ -124,7 +124,7 @@ module Commandant
 
     private def load_from_directory(tool : String) : Ruleset?
       path = resolve_path(tool)
-      return nil unless path
+      return unless path
       Ruleset.from_file(path)
     end
 
@@ -145,7 +145,7 @@ module Commandant
     end
 
     private def resolve_path(tool : String) : Path?
-      return nil unless base_path = @base_path
+      return unless base_path = @base_path
       [platform, "posix"].each do |plat|
         path = base_path / plat / "#{tool}.json"
         return path if File.exists?(path.to_s)
