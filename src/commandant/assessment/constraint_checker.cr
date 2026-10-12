@@ -18,6 +18,7 @@ module Commandant
 
     def initialize(@sandbox_root : Path, @allowed_tools : Array(String))
       @parser = Parser::PosixParser.new
+      @expanded_root = @sandbox_root.expand
     end
 
     # Returns all constraint violations for the given parsed command.
@@ -192,36 +193,32 @@ module Commandant
     end
 
     private def check_path_argument(arg : String, violations : Array(ConstraintViolation)) : Nil
-      # Resolve the path relative to sandbox_root for relative traversal paths
-      if arg.starts_with?("../") || arg == ".."
-        expanded = (sandbox_root / arg).expand
-        unless expanded.to_s.starts_with?(sandbox_root.to_s)
-          violations << ConstraintViolation.new(
-            constraint: "escapes-sandbox",
-            detail: "'#{arg}' traverses outside sandbox root '#{sandbox_root}'"
-          )
-        end
-        return
-      end
+      resolved = resolve(arg)
+      return if resolved && within_sandbox?(resolved)
 
-      return unless arg.starts_with?("/") || arg.starts_with?("~")
+      detail = if resolved
+                 "'#{arg}' resolves to '#{resolved}' which is outside sandbox root '#{sandbox_root}'"
+               else
+                 "'#{arg}' could not be resolved relative to sandbox root '#{sandbox_root}'"
+               end
+      violations << ConstraintViolation.new(constraint: "escapes-sandbox", detail: detail)
+    end
 
-      expanded = arg.starts_with?("~") ? Path.home / arg[2..] : Path[arg]
+    # Expands *arg* as a command run in the sandbox root would see it: `~` is the
+    # home directory and relative paths start at the sandbox root. Returns nil
+    # when the path cannot be expanded.
+    private def resolve(arg : String) : Path?
+      Path[arg].expand(base: @expanded_root, home: true)
+    rescue
+      nil
+    end
 
-      begin
-        resolved = expanded.expand
-        unless resolved.to_s.starts_with?(sandbox_root.to_s)
-          violations << ConstraintViolation.new(
-            constraint: "escapes-sandbox",
-            detail: "'#{arg}' resolves to '#{resolved}' which is outside sandbox root '#{sandbox_root}'"
-          )
-        end
-      rescue
-        violations << ConstraintViolation.new(
-          constraint: "escapes-sandbox",
-          detail: "'#{arg}' could not be resolved relative to sandbox root '#{sandbox_root}'"
-        )
-      end
+    # Compares path components rather than strings, with both paths expanded
+    # the same way, so `/project-evil` is outside `/project` and a Windows
+    # drive prefix applies to both sides.
+    private def within_sandbox?(path : Path) : Bool
+      relative = path.relative_to?(@expanded_root)
+      !relative.nil? && relative.parts.first? != ".."
     end
 
     private def looks_like_path?(s : String) : Bool

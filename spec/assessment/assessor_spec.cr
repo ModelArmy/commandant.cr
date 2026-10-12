@@ -60,6 +60,28 @@ Spectator.describe Commandant::Assessor do
         expect(response.decision).to eq(Commandant::Decision::Deny)
         expect(response.constraint_violations.map(&.constraint)).to contain("escapes-sandbox")
       end
+
+      it "allows an absolute path inside the sandbox" do
+        response = assessor.assess("cat /home/user/project/src/main.cr")
+        expect(response.constraint_violations).to be_empty
+      end
+
+      it "denies a sibling directory that shares the sandbox root's prefix" do
+        response = assessor.assess("ls /home/user/project-evil")
+        expect(response.decision).to eq(Commandant::Decision::Deny)
+        expect(response.constraint_violations.map(&.constraint)).to contain("escapes-sandbox")
+      end
+
+      it "denies a relative path that climbs out through a subdirectory" do
+        response = assessor.assess("cat ./src/../../other/secrets.txt")
+        expect(response.decision).to eq(Commandant::Decision::Deny)
+        expect(response.constraint_violations.map(&.constraint)).to contain("escapes-sandbox")
+      end
+
+      it "allows a relative path that climbs within the sandbox" do
+        response = assessor.assess("cat ./src/../README.md")
+        expect(response.constraint_violations).to be_empty
+      end
     end
 
     context "sed in-place" do
