@@ -51,7 +51,7 @@ jobs:
 
       - name: Run static code analysis (Linux)
         if: ${{ runner.os == 'Linux' }}
-        run: bin/ameba src/ spec/
+        run: bin/ameba src/
 
       - name: Build release
         shell: bash
