@@ -57,6 +57,15 @@ jobs:
         shell: bash
         run: mkdir -p bin/release && SHARDS_BIN_PATH=bin/release shards --production build --release
 
-      - name: Smoke test sample
+      - name: Smoke test - assess ls
         shell: bash
-        run: 'bin/release/assess 2>&1 | grep "Usage: assess"'
+        run: |
+          RULESETS_PATH=spec/fixtures/rulesets bin/release/assess ls | grep '"tool_known": true'
+
+      - name: Smoke test - usage via STDERR
+        shell: bash
+        # GitHub Actions runs bash steps with -o pipefail.
+        # Command with no arguments calls abort(USAGE), which exits 1, and
+        # with pipefail a pipeline fails if _any_ command in it fails, not just the last.
+        # This form tolerates the expected exit code and still fails when the text is missing.
+        run: '{ bin/release/assess 2>&1 || true; } | grep "Usage: assess"'
